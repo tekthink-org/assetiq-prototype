@@ -429,7 +429,7 @@ officer_view = {
     "indicators": [
         {"label": "Boundary", "status": "amber", "text": "1 open encroachment; 1 record dispute awaiting ruling"},
         {"label": "Water quality", "status": "amber", "text": "Recovered after August sewage event; source not yet diverted"},
-        {"label": "Water level", "status": level_status, "text": f"{cur} m on gauge; {round(asset['ftl_gauge_m'] - cur, 2)} m below FTL"},
+        {"label": "Water level", "status": level_status, "text": f"{cur:.2f} m on gauge; {round(asset['ftl_gauge_m'] - cur, 2)} m below FTL"},
         {"label": "Restoration", "status": "amber", "text": f"{works['precomputed_progress']['overall_pct']}% overall; fencing behind"},
         {"label": "Structures", "status": "amber", "text": "Bund seepage under watch"},
         {"label": "Ecology", "status": "amber", "text": "Weed cover rising; bloom reported"},
