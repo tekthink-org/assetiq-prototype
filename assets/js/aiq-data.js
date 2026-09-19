@@ -127,6 +127,7 @@ const AIQ = {
     const W = maxX - minX, H = maxY - minY;
     svg.setAttribute("viewBox", `${minX} ${-maxY} ${W} ${H}`);
     svg.setAttribute("role", "img");
+    svg.classList.add("plan-ink");
     svg.setAttribute("aria-label",
       `Schematic plan of ${data.asset.display_name}: catchment, buffer zone, full tank level boundary and current water spread`);
 
