@@ -1,0 +1,20 @@
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Node (not used yet, kept for later)
+node_modules/
+npm-debug.log*
+
+# Local build and env
+.vercel
+.env
+.env.local
+
+# Never commit: confidential documents belong in the Drive controlled library
+*.docx
+*.pdf
+*.xlsx
