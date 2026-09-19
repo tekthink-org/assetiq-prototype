@@ -165,6 +165,22 @@ const AIQ = {
       }
     });
 
+    if (opts.sensors !== false) {
+      (data.sensor_devices || []).forEach(s => {
+        const c = document.createElementNS(ns, "rect");
+        c.setAttribute("x", s.location[0] - 11); c.setAttribute("y", -s.location[1] - 11);
+        c.setAttribute("width", 22); c.setAttribute("height", 22); c.setAttribute("class", "sensor");
+        frag.appendChild(c);
+        if (opts.labels !== false) {
+          const t = document.createElementNS(ns, "text");
+          t.setAttribute("x", s.location[0] + 20); t.setAttribute("y", -s.location[1] + 5);
+          t.setAttribute("class", "node-label");
+          t.textContent = s.id;
+          frag.appendChild(t);
+        }
+      });
+    }
+
     if (opts.changes !== false) {
       (g.change_polygons || []).forEach(cp => {
         const el = poly(cp.polygon, "flag");
