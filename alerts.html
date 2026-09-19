@@ -154,7 +154,7 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
     if (!items.length) return `<p class="wire-note">This event rests on records rather than captured media: ${ids.join(", ")}.</p>`;
     return `<div class="evidence">` + items.map(m => `
       <figure>
-        <div class="frame">${m.kind.replace(/_/g, " ")}</div>
+        <div class="frame">${m.role_note || m.kind.replace(/_/g, " ")}</div>
         <figcaption>
           <span class="who">${userName(m.captured_by).split(",")[0]}</span> · ${AIQ.dateTime(m.captured_at)}<br>
           grid ${m.location[0]}, ${m.location[1]}<br>
