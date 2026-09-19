@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Officer lake view — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="wordmark">Asset<span>IQ</span></span>
+    <span class="authority" id="authority"></span>
+  </div>
+</header>
+
+<div class="demo-banner">
+  <div class="wrap">Interactive wireframe. Every lake, person, record and figure here is invented.</div>
+</div>
+
+<main class="wrap">
+  <section class="lake-head">
+    <div class="row">
+      <div>
+        <h1 id="lake-name">Loading…</h1>
+        <p class="sub" id="lake-sub"></p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </section>
+
+  <div class="cols">
+    <!-- left column -->
+    <div class="stack">
+      <section class="panel">
+        <h2>The lake today</h2>
+        <div class="body">
+          <svg id="plan" style="width:100%;height:auto"></svg>
+          <p class="caption" id="plan-caption"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Condition</h2>
+        <div class="indicators" id="indicators"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Restoration progress</h2>
+        <div class="body">
+          <ul class="bars" id="bars"></ul>
+          <div class="total">
+            <span>Overall, weighted by sanctioned value</span>
+            <span class="big" id="overall"></span>
+          </div>
+          <p class="caption" id="works-caption"></p>
+        </div>
+      </section>
+    </div>
+
+    <!-- right column -->
+    <div class="stack">
+      <section class="panel decisions">
+        <h2>Needs your decision today</h2>
+        <div class="body"><ol id="decisions"></ol></div>
+      </section>
+
+      <section class="panel">
+        <h2 id="overdue-head">Overdue</h2>
+        <ul class="events" id="overdue"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Changed this week</h2>
+        <ul class="events" id="changed"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Water quality</h2>
+        <div class="body">
+          <svg id="chart-do"></svg>
+          <p class="caption" id="do-caption"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Water level</h2>
+        <div class="body">
+          <svg id="chart-level"></svg>
+          <p class="caption" id="level-caption"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Compliance</h2>
+        <ul class="events" id="compliance"></ul>
+      </section>
+    </div>
+  </div>
+
+  <a class="backlink" href="index.html">Back to the screen list</a>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Every figure on this page traces back to a survey, a sensor reading, a laboratory report or a field entry with a photograph, a location and a timestamp.</p>
+    <p id="dataline"></p>
+  </div>
+</footer>
+
+<script src="assets/js/aiq-data.js"></script>
+<script>
+(async () => {
+  try {
+    const data = await aiqLoad();
+    const a = data.asset, ov = data.officer_view, works = data.restoration_works;
+    const byId = Object.fromEntries(data.events.map(e => [e.id, e]));
+
+    document.getElementById("authority").textContent = data.authority.name;
+    document.getElementById("lake-name").textContent = a.display_name;
+    document.getElementById("lake-sub").textContent =
+      `${a.ftl_area_ha} ha at full tank level · ${a.zone}, ${a.circle} · ${AIQ.custody(a.custody_state)} · as at ${AIQ.dateTime(ov.as_of)}`;
+    document.getElementById("verdict").innerHTML =
+      `<span class="dot ${ov.overall_status}"></span> <span class="reason">${ov.status_reason}</span>`;
+
+    /* plan */
+    AIQ.drawPlan(document.getElementById("plan"), data);
+    const fill = byId["EV-01"];
+    document.getElementById("plan-caption").textContent =
+      `Current water spread ${data.satellite_series.at(-1).water_spread_ha} ha. ` +
+      `Red outline on the north bank: ${fill.title.toLowerCase()}, found by the drone pass of ${AIQ.date(data.observation_passes[1].date)}.`;
+
+    /* condition */
+    document.getElementById("indicators").innerHTML = ov.indicators.map(i =>
+      `<div><p class="k"><span class="dot ${i.status}"></span>${i.label}</p><p class="v">${i.text}</p></div>`).join("");
+
+    /* decisions */
+    document.getElementById("decisions").innerHTML = ov.needs_decision_today.map(d => {
+      const e = byId[d.event];
+      return `<li><div><p class="ask">${d.decision}</p>` +
+        `<p class="why">${e.title}. If not acted on: ${e.consequence_if_not_acted.toLowerCase()}</p></div></li>`;
+    }).join("");
+
+    /* event lists */
+    const row = e => {
+      const late = e.deadline && e.deadline < ov.as_of.slice(0, 10);
+      return `<li><p class="title">${e.title}</p><p class="meta">` +
+        `${AIQ.source(e.evidence_source)} · ${AIQ.zone(data, e.zone)} · ` +
+        `<span class="owner">${(data.users.find(u => u.id === e.owner) || {}).role || e.owner}</span>` +
+        (e.deadline ? ` · <span class="${late ? "late" : ""}">due ${AIQ.date(e.deadline)}</span>` : "") +
+        `</p><p class="meta">${e.detail}</p></li>`;
+    };
+    document.getElementById("overdue-head").textContent = `Overdue (${ov.overdue.length})`;
+    document.getElementById("overdue").innerHTML = ov.overdue.map(id => row(byId[id])).join("");
+    document.getElementById("changed").innerHTML = ov.what_changed_this_week.map(id => row(byId[id])).join("");
+
+    /* charts */
+    const doSeries = AIQ.daily(data, "SN-WQ1", "do_mg_l", "min");
+    AIQ.drawChart(document.getElementById("chart-do"), doSeries, {
+      limit: data.thresholds.do_mg_l.alert_below, limitLabel: "alert below 4.0 mg/L",
+      markLowest: true, unit: " mg/L", label: "Daily lowest dissolved oxygen"
+    });
+    const ev4 = byId["EV-04"];
+    document.getElementById("do-caption").textContent =
+      `Daily lowest dissolved oxygen at the water quality node. ${ev4.detail} Threshold illustrative.`;
+
+    const lvSeries = AIQ.daily(data, "SN-LV1", "level_m", "max");
+    AIQ.drawChart(document.getElementById("chart-level"), lvSeries, {
+      limit: a.ftl_gauge_m, limitLabel: "full tank level", label: "Daily highest water level"
+    });
+    document.getElementById("level-caption").textContent =
+      `Daily highest gauge reading. ${a.gauge_datum_note.replace("(synthetic)", "").trim()}.`;
+
+    /* works */
+    const items = Object.fromEntries(works.items.map(i => [i.id, i]));
+    document.getElementById("bars").innerHTML = works.precomputed_progress.items.map(p => {
+      const it = items[p.item];
+      return `<li><span class="label">${it.name}</span><span class="pct">${p.pct}%</span>` +
+        `<span class="track"><span class="fill" style="width:${p.pct}%"></span></span></li>`;
+    }).join("");
+    document.getElementById("overall").textContent = works.precomputed_progress.overall_pct + "%";
+    document.getElementById("works-caption").textContent =
+      `${works.name}, work order ${works.id}. Quantities measured in the field and check-measured by a second officer. ` +
+      `${works.measurements.length} measurement entries since ${AIQ.date(works.issued_on)}.`;
+
+    /* compliance */
+    document.getElementById("compliance").innerHTML = data.compliance_targets.map(c =>
+      `<li><p class="title">${c.report}</p><p class="meta">${c.authority} · due ${AIQ.date(c.next_due)} · ` +
+      `${c.draft_status.replace(/_/g, " ")}</p></li>`).join("");
+
+    document.getElementById("dataline").textContent = data.meta.disclaimer;
+  } catch (err) {
+    document.getElementById("lake-name").textContent = "The demonstration data did not load";
+    document.getElementById("lake-sub").textContent =
+      "Serve this folder over HTTP (python3 -m http.server 8080) rather than opening the file directly.";
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>
