@@ -45,8 +45,8 @@
   },
   {
    "id": "U-SV",
-   "name": "Survey partner team",
-   "role": "Survey and drone partner"
+   "name": "Survey partner",
+   "role": "Survey and drone operations"
   },
   {
    "id": "U-LAB",
@@ -8866,14 +8866,16 @@
    "captured_at": "2026-06-29T11:00",
    "captured_by": "U-SV",
    "location": [
-    56,
+    55,
     326
    ],
    "sha256": "acdb3e4eeb34ecdc193c5ec83fa687475b312a7320a9ea1a9e2eb6a9e8f25a03",
    "linked_to": [
     "DP-1",
     "EV-01"
-   ]
+   ],
+   "role": "before",
+   "role_note": "Before \u2014 first drone pass"
   },
   {
    "id": "MA-DP2-N",
@@ -8881,14 +8883,16 @@
    "captured_at": "2026-08-11T11:00",
    "captured_by": "U-SV",
    "location": [
-    56,
+    55,
     326
    ],
    "sha256": "164a428ee35e3b7cf6a959102b82a0b49d24ba21937d13615361a5a638779dc1",
    "linked_to": [
     "DP-2",
     "EV-01"
-   ]
+   ],
+   "role": "after",
+   "role_note": "After \u2014 second drone pass"
   },
   {
    "id": "MA-EV01",
@@ -8896,8 +8900,8 @@
    "captured_at": "2026-08-11T11:00",
    "captured_by": "U-FA1",
    "location": [
-    277,
-    74
+    55,
+    326
    ],
    "sha256": "790f92a73bdac48bdd271b12cdcca6d4a91eb2f9cd817a81b7f1fba33b479609",
    "linked_to": [
@@ -8910,8 +8914,8 @@
    "captured_at": "2026-07-17T11:00",
    "captured_by": "U-AE",
    "location": [
-    217,
-    322
+    455,
+    40
    ],
    "sha256": "3c5fa026e3b7ea87b6b399d7f1699bdbf17463d66fba70d6e8a52e1219e91460",
    "linked_to": [
@@ -8924,8 +8928,8 @@
    "captured_at": "2026-08-03T11:00",
    "captured_by": "U-FA2",
    "location": [
-    334,
-    -16
+    -420,
+    60
    ],
    "sha256": "1f4c864700bb8d3c1af05d98a59b44791d76e0fc3a5037aebd4a3b429533c3f1",
    "linked_to": [
@@ -8936,10 +8940,10 @@
    "id": "MA-EV06",
    "kind": "photo",
    "captured_at": "2026-09-01T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-AE",
    "location": [
-    322,
-    -232
+    280,
+    230
    ],
    "sha256": "e05053685daa4b9069c888ea1fd52c8fddc9310da2f6f78b65c7f6b36ed2b56f",
    "linked_to": [
@@ -8952,8 +8956,8 @@
    "captured_at": "2026-08-15T11:00",
    "captured_by": "U-AE",
    "location": [
-    212,
-    -210
+    60,
+    310
    ],
    "sha256": "8953707d651efbb5f2b77ffc2e46ecc044dded5a284a1cf141625f324a56ab7a",
    "linked_to": [
@@ -8966,8 +8970,8 @@
    "captured_at": "2026-08-25T11:00",
    "captured_by": "U-FA2",
    "location": [
-    -216,
-    -258
+    -120,
+    -300
    ],
    "sha256": "ff966926d8691a40b3bc3b0c6a02757a3188d7e66d27602af8100abf5be098ca",
    "linked_to": [
@@ -8980,8 +8984,8 @@
    "captured_at": "2026-07-29T11:00",
    "captured_by": "U-AE",
    "location": [
-    -165,
-    198
+    -80,
+    -292
    ],
    "sha256": "225c456d0f92d87352eee74f3e3b9fac33ee689686f0e420f5dc11794296713a",
    "linked_to": [
@@ -8992,10 +8996,10 @@
    "id": "MA-EV10",
    "kind": "photo",
    "captured_at": "2026-08-06T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-EE",
    "location": [
-    -245,
-    -190
+    -120,
+    -300
    ],
    "sha256": "2d592582f7698e778f9843c0a5c6229b31cce81e24af3d684490ed24cfa14429",
    "linked_to": [
@@ -9006,10 +9010,10 @@
    "id": "MA-EV11",
    "kind": "photo",
    "captured_at": "2026-07-02T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-AE",
    "location": [
-    341,
-    124
+    0,
+    0
    ],
    "sha256": "ceac03883caff52afaac81d998e1d557cde627b664ffd4e7ab4fc782dace20da",
    "linked_to": [
@@ -9020,10 +9024,10 @@
    "id": "MA-EV13",
    "kind": "photo",
    "captured_at": "2026-09-11T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-EE",
    "location": [
-    82,
-    -183
+    -100,
+    300
    ],
    "sha256": "bf85a1158d136323200d779a029fb4cfec620abd5037b12e57ac73e01f9f3f61",
    "linked_to": [
@@ -9034,10 +9038,10 @@
    "id": "MA-EV15",
    "kind": "photo",
    "captured_at": "2026-07-08T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-NO",
    "location": [
-    186,
-    306
+    0,
+    0
    ],
    "sha256": "d8cfa255bc933927376a4dc73e95d9d0f784c42d2bc79f9ffd3e906665f26975",
    "linked_to": [
@@ -9048,10 +9052,10 @@
    "id": "MA-EV16",
    "kind": "photo",
    "captured_at": "2026-09-09T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-NO",
    "location": [
-    72,
-    -149
+    -120,
+    -300
    ],
    "sha256": "32f45dec82a3a745e7b46725e036278a7cc2fc785800499867d862fc896e1aab",
    "linked_to": [
@@ -9062,10 +9066,10 @@
    "id": "MA-EV17",
    "kind": "photo",
    "captured_at": "2026-09-07T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-AE",
    "location": [
-    197,
-    170
+    60,
+    270
    ],
    "sha256": "a6d53f4eac22ceef9129185bc27b81d1ca7d72afae263b3fb221d83ccec78ebb",
    "linked_to": [
@@ -9076,10 +9080,10 @@
    "id": "MA-EV18",
    "kind": "photo",
    "captured_at": "2026-09-08T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-AE",
    "location": [
-    334,
-    30
+    150,
+    120
    ],
    "sha256": "8677c47d0c37f3ea83ed569ed480308a4aef4c64026848822809362b49d1166b",
    "linked_to": [
@@ -9090,10 +9094,10 @@
    "id": "MA-EV19",
    "kind": "photo",
    "captured_at": "2026-07-26T11:00",
-   "captured_by": "U-FA1",
+   "captured_by": "U-EE",
    "location": [
-    -63,
-    216
+    230,
+    -300
    ],
    "sha256": "73aa7e5d36a9da62bb8cb35ca37093bb3b21b8ff2e9ebe9a9edf3ae130b1bb70",
    "linked_to": [
@@ -9106,8 +9110,8 @@
    "captured_at": "2026-09-03T11:00",
    "captured_by": "U-FA2",
    "location": [
-    115,
-    -215
+    -300,
+    -200
    ],
    "sha256": "e2dc2f2c321b40df39c3aa7163af57d607528d5be4fb88b8ec647ab0c478a030",
    "linked_to": [
@@ -9134,12 +9138,13 @@
    "captured_at": "2026-07-27T11:00",
    "captured_by": "U-AE",
    "location": [
-    114,
-    110
+    -150,
+    200
    ],
    "sha256": "c4a858e18bdb4c6bab8c65dd8bfbe8adfdd1748c41fe210ca86571f621166521",
    "linked_to": [
-    "MB-01"
+    "MB-01",
+    "RW-1"
    ]
   },
   {
@@ -9148,12 +9153,13 @@
    "captured_at": "2026-07-29T11:00",
    "captured_by": "U-AE",
    "location": [
-    221,
-    60
+    0,
+    0
    ],
    "sha256": "4e524f664356229ab4927ebe96305ccfc8ec136a0f4a7c1169f4190bdc91b9db",
    "linked_to": [
-    "MB-02"
+    "MB-02",
+    "RW-2"
    ]
   },
   {
@@ -9162,12 +9168,13 @@
    "captured_at": "2026-08-08T11:00",
    "captured_by": "U-AE",
    "location": [
-    13,
-    -172
+    -150,
+    200
    ],
    "sha256": "5abb8034226ac0df9d530bf2655170b7a7b2cbbef6bfc01e40a178ddc0624f47",
    "linked_to": [
-    "MB-03"
+    "MB-03",
+    "RW-1"
    ]
   },
   {
@@ -9176,12 +9183,13 @@
    "captured_at": "2026-08-11T11:00",
    "captured_by": "U-AE",
    "location": [
-    -34,
-    97
+    0,
+    0
    ],
    "sha256": "33b9f6bcf19f57407071d094000bafe8b340128380fe500ddedd15b3b02962af",
    "linked_to": [
-    "MB-04"
+    "MB-04",
+    "RW-2"
    ]
   },
   {
@@ -9190,12 +9198,13 @@
    "captured_at": "2026-08-13T11:00",
    "captured_by": "U-AE",
    "location": [
-    242,
-    191
+    -200,
+    290
    ],
    "sha256": "da0a449b368d3c86ab51bb1c3e0850c4f64b2d932c9da0f59f85c8e16d105711",
    "linked_to": [
-    "MB-05"
+    "MB-05",
+    "RW-5"
    ]
   },
   {
@@ -9204,12 +9213,13 @@
    "captured_at": "2026-08-16T11:00",
    "captured_by": "U-AE",
    "location": [
-    -123,
-    99
+    200,
+    150
    ],
    "sha256": "443d4e4f3a000668602fef5cff89fc2f53f6b49b05756c9bc8d3ec9bebbb5096",
    "linked_to": [
-    "MB-06"
+    "MB-06",
+    "RW-7"
    ]
   },
   {
@@ -9218,12 +9228,13 @@
    "captured_at": "2026-08-23T11:00",
    "captured_by": "U-AE",
    "location": [
-    -211,
-    -240
+    -150,
+    200
    ],
    "sha256": "75055dfa5b71560ccaede5f206f5a5d237b81d20125311d94a47b63a338c282e",
    "linked_to": [
-    "MB-07"
+    "MB-07",
+    "RW-1"
    ]
   },
   {
@@ -9232,12 +9243,13 @@
    "captured_at": "2026-08-26T11:00",
    "captured_by": "U-AE",
    "location": [
-    101,
-    -148
+    0,
+    0
    ],
    "sha256": "aea1ae958288697997a653a2f733276cfdfd67293c88040fcc76bd2128911ae4",
    "linked_to": [
-    "MB-08"
+    "MB-08",
+    "RW-2"
    ]
   },
   {
@@ -9246,12 +9258,13 @@
    "captured_at": "2026-08-28T11:00",
    "captured_by": "U-AE",
    "location": [
-    -45,
-    -142
+    -200,
+    290
    ],
    "sha256": "c22f9f247e1e2ca9de462c363354e41858e53d86c3049efbc53709ecc3ac3079",
    "linked_to": [
-    "MB-09"
+    "MB-09",
+    "RW-5"
    ]
   },
   {
@@ -9260,12 +9273,13 @@
    "captured_at": "2026-09-06T11:00",
    "captured_by": "U-AE",
    "location": [
-    -206,
-    206
+    -150,
+    200
    ],
    "sha256": "7ea5711c84beab5ef540e5172e860c9d25d86cc4585433fefcebe6e3f69a9144",
    "linked_to": [
-    "MB-10"
+    "MB-10",
+    "RW-1"
    ]
   },
   {
@@ -9274,12 +9288,13 @@
    "captured_at": "2026-09-09T11:00",
    "captured_by": "U-AE",
    "location": [
-    -191,
-    -190
+    0,
+    0
    ],
    "sha256": "3e281da6e72a4ad1d4f2c9c2fa037100878fffcd23f075a5901a7b61520802ec",
    "linked_to": [
-    "MB-11"
+    "MB-11",
+    "RW-2"
    ]
   },
   {
@@ -9288,12 +9303,13 @@
    "captured_at": "2026-09-11T11:00",
    "captured_by": "U-AE",
    "location": [
-    233,
-    203
+    -200,
+    290
    ],
    "sha256": "87e5fd728fa4c055cfc10f9badc9cf51b40ba990fc9e37a489e9f59f03468ae1",
    "linked_to": [
-    "MB-12"
+    "MB-12",
+    "RW-5"
    ]
   },
   {
@@ -9302,12 +9318,13 @@
    "captured_at": "2026-09-12T11:00",
    "captured_by": "U-AE",
    "location": [
-    207,
-    120
+    200,
+    150
    ],
    "sha256": "7d273145d64c1d941d437b14f14beedcd7b086e2d6e1f242d83d519ebd60c77b",
    "linked_to": [
-    "MB-13"
+    "MB-13",
+    "RW-7"
    ]
   },
   {
@@ -9316,8 +9333,8 @@
    "captured_at": "2026-08-18T11:00",
    "captured_by": "U-FA1",
    "location": [
-    348,
-    -119
+    430,
+    0
    ],
    "sha256": "fb768bfbc08a0f484d946d3294d98f1e33e9617f9e19e557322c99045219a5d2",
    "linked_to": [
@@ -9330,8 +9347,8 @@
    "captured_at": "2026-08-18T11:00",
    "captured_by": "U-FA2",
    "location": [
-    -177,
-    279
+    390,
+    150
    ],
    "sha256": "774138abaab4c06fac86f12854ae267ae00f593097f412deb59322c83ae1828d",
    "linked_to": [
@@ -9344,8 +9361,8 @@
    "captured_at": "2026-08-21T11:00",
    "captured_by": "U-FA1",
    "location": [
-    -145,
-    276
+    214,
+    247
    ],
    "sha256": "94700f334716c394049973144a8681167278f2e391c316727d1a59de5780b06e",
    "linked_to": [
@@ -9358,8 +9375,8 @@
    "captured_at": "2026-08-21T11:00",
    "captured_by": "U-FA2",
    "location": [
-    -323,
-    260
+    0,
+    309
    ],
    "sha256": "177596305d2100c19627da003d4dd90644852a428d8ebefae038d1c9d7e1ad49",
    "linked_to": [
@@ -9372,8 +9389,8 @@
    "captured_at": "2026-08-23T11:00",
    "captured_by": "U-FA2",
    "location": [
-    203,
-    -57
+    -368,
+    142
    ],
    "sha256": "f50df5aa623f3dc0f0ce7fdb6b2693d2bda318b381013b634ad9adfa73881545",
    "linked_to": [
@@ -9386,8 +9403,8 @@
    "captured_at": "2026-08-26T11:00",
    "captured_by": "U-FA1",
    "location": [
-    337,
-    283
+    -435,
+    0
    ],
    "sha256": "e5b9d4516ed0f25a40fe502698e2502cecf65835d37257604eb2cf80d65fbff9",
    "linked_to": [
@@ -9400,8 +9417,8 @@
    "captured_at": "2026-08-26T11:00",
    "captured_by": "U-FA2",
    "location": [
-    -34,
-    230
+    -387,
+    -149
    ],
    "sha256": "ca7ca248e042b54f09651d001b14b42360ab8fc72f40fb3f9bc62134c7997b1f",
    "linked_to": [
@@ -9414,8 +9431,8 @@
    "captured_at": "2026-08-28T11:00",
    "captured_by": "U-FA1",
    "location": [
-    352,
-    -159
+    -217,
+    -251
    ],
    "sha256": "e0c1df74c06072f4daee4f7795fe73218113c82da281c7963953eb60af502a62",
    "linked_to": [
@@ -9428,8 +9445,8 @@
    "captured_at": "2026-08-28T11:00",
    "captured_by": "U-FA2",
    "location": [
-    414,
-    -201
+    0,
+    -312
    ],
    "sha256": "f8cb41d37f405af14d0a2f8bae8d886dc4834cb4796b58f07edb6187a2ca038c",
    "linked_to": [
@@ -9442,8 +9459,8 @@
    "captured_at": "2026-08-31T11:00",
    "captured_by": "U-FA1",
    "location": [
-    83,
-    198
+    238,
+    -275
    ],
    "sha256": "58ead7bd379a800728f20c352f46a271752af1786a268a0295080b698c96b164",
    "linked_to": [
@@ -9456,8 +9473,8 @@
    "captured_at": "2026-08-31T11:00",
    "captured_by": "U-FA2",
    "location": [
-    -279,
-    -155
+    400,
+    -154
    ],
    "sha256": "8fc20d432f1d353fe02ba19f46d33cc2485b1279fd4a5bb6a3d679fe22b3d1bb",
    "linked_to": [
@@ -9470,8 +9487,8 @@
    "captured_at": "2026-09-02T11:00",
    "captured_by": "U-FA1",
    "location": [
-    -402,
-    -157
+    430,
+    0
    ],
    "sha256": "9a91184db3bb7abad10c560d409accd323871d3537738d8366d73455fce52d96",
    "linked_to": [
@@ -9484,8 +9501,8 @@
    "captured_at": "2026-09-05T11:00",
    "captured_by": "U-FA1",
    "location": [
-    -356,
-    -273
+    390,
+    150
    ],
    "sha256": "cd050973d34a9c028f3dfd312e7ddcea4176bf11110ab100126582ae7e0a707b",
    "linked_to": [
@@ -9498,8 +9515,8 @@
    "captured_at": "2026-09-05T11:00",
    "captured_by": "U-FA2",
    "location": [
-    331,
-    -74
+    214,
+    247
    ],
    "sha256": "c0f58c093076b7434113af56dd1b684d00d789e6fc8e6f78be4225febacca259",
    "linked_to": [
@@ -9512,8 +9529,8 @@
    "captured_at": "2026-09-07T11:00",
    "captured_by": "U-FA1",
    "location": [
-    -192,
-    -53
+    0,
+    309
    ],
    "sha256": "8e7baad97470a283a6f8bc5cc1bd104776cbefa117fc38f6d2b3137f2f1d6046",
    "linked_to": [
@@ -9526,8 +9543,8 @@
    "captured_at": "2026-09-07T11:00",
    "captured_by": "U-FA2",
    "location": [
-    340,
-    12
+    -218,
+    251
    ],
    "sha256": "6b47945cd333dc5fac67e22ec419f4228404e16f36bf621310ba6ca686757902",
    "linked_to": [
@@ -9540,8 +9557,8 @@
    "captured_at": "2026-09-10T11:00",
    "captured_by": "U-FA1",
    "location": [
-    364,
-    -276
+    -368,
+    142
    ],
    "sha256": "c24408a5774052298c421dada9c3cc2d8f38bce3d7633df97b30ded76bca901a",
    "linked_to": [
@@ -9554,8 +9571,8 @@
    "captured_at": "2026-09-10T11:00",
    "captured_by": "U-FA2",
    "location": [
-    -157,
-    286
+    -435,
+    0
    ],
    "sha256": "1c246cadd0a6cf3ecfbb65b67cefdf82042b3e3682f7cede2a4bc5017609e9a0",
    "linked_to": [
@@ -9568,8 +9585,8 @@
    "captured_at": "2026-09-12T11:00",
    "captured_by": "U-FA2",
    "location": [
-    -58,
-    6
+    -217,
+    -251
    ],
    "sha256": "ad9f39805190ff3250b02826b7588b236ef577d5749cfd37428e50e8649cc1ab",
    "linked_to": [
@@ -9582,8 +9599,8 @@
    "captured_at": "2026-09-15T11:00",
    "captured_by": "U-FA1",
    "location": [
-    283,
-    -283
+    0,
+    -312
    ],
    "sha256": "547f93f690faadb5a48f9d73600e93b49959c7871a287e40b4fe28bebdef5efa",
    "linked_to": [
@@ -9596,8 +9613,8 @@
    "captured_at": "2026-09-15T11:00",
    "captured_by": "U-FA2",
    "location": [
-    363,
-    -12
+    238,
+    -275
    ],
    "sha256": "273bf34733b6ba386b83edc1a1c4e53fac16d7cb94bc560514b8c9d55e979b58",
    "linked_to": [
