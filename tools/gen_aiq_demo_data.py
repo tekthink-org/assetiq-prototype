@@ -76,7 +76,7 @@ users = [
     {"id": "U-EE", "name": "M. Rao", "role": "Executive Engineer (check-measurement)"},
     {"id": "U-FA1", "name": "S. Naidu", "role": "Field Assistant"},
     {"id": "U-FA2", "name": "P. Latha", "role": "Field Assistant"},
-    {"id": "U-SV", "name": "Survey partner team", "role": "Survey and drone partner"},
+    {"id": "U-SV", "name": "Survey partner", "role": "Survey and drone operations"},
     {"id": "U-LAB", "name": "Demo Water Testing Lab", "role": "Accredited laboratory"},
 ]
 
@@ -377,24 +377,42 @@ comp = sum(c["status"] == "completed" for c in captures)
 
 # ---------------------------------------------------------------- evidence ledger
 media = []
-def add_media(mid, kind, day, by, loc, links):
-    media.append({"id": mid, "kind": kind, "captured_at": d(day, 11), "captured_by": by,
-                  "location": loc, "sha256": sha(mid), "linked_to": links})
-add_media("MA-DP1-N", "orthophoto_tile", 12, "U-SV", [56, 326], ["DP-1", "EV-01"])
-add_media("MA-DP2-N", "orthophoto_tile", 55, "U-SV", [56, 326], ["DP-2", "EV-01"])
+# Every piece of evidence sits where the event says it happened, not at a random point.
+EVENT_PLACE = {
+    "EV-01": [55, 326], "EV-02": [455, 40], "EV-03": [-420, 60], "EV-04": [60, 270],
+    "EV-05": [60, 310], "EV-06": [280, 230], "EV-07": [60, 310], "EV-08": [-120, -300],
+    "EV-09": [-80, -292], "EV-10": [-120, -300], "EV-11": [0, 0], "EV-12": [0, 20],
+    "EV-13": [-100, 300], "EV-14": [0, 330], "EV-15": [0, 0], "EV-16": [-120, -300],
+    "EV-17": [60, 270], "EV-18": [150, 120], "EV-19": [230, -300], "EV-20": [-300, -200],
+}
+ITEM_PLACE = {"RW-1": [-150, 200], "RW-2": [0, 0], "RW-3": [0, -200],
+              "RW-4": [-80, -292], "RW-5": [-200, 290], "RW-6": [60, 310], "RW-7": [200, 150]}
+
+def add_media(mid, kind, day, by, loc, links, **extra):
+    m = {"id": mid, "kind": kind, "captured_at": d(day, 11), "captured_by": by,
+         "location": loc, "sha256": sha(mid), "linked_to": links}
+    m.update(extra)
+    media.append(m)
+
+add_media("MA-DP1-N", "orthophoto_tile", 12, "U-SV", EVENT_PLACE["EV-01"], ["DP-1", "EV-01"],
+          role="before", role_note="Before — first drone pass")
+add_media("MA-DP2-N", "orthophoto_tile", 55, "U-SV", EVENT_PLACE["EV-01"], ["DP-2", "EV-01"],
+          role="after", role_note="After — second drone pass")
 for e in events:
     for m in e["evidence"]:
         if m.startswith("MA-EV"):
-            add_media(m, "photo", int((datetime.fromisoformat(e["raised_at"]) - START).days) + 1, e.get("verified_by") or "U-FA1",
-                      [round(random.uniform(-400, 400)), round(random.uniform(-300, 330))], [e["id"]])
-add_media("MA-SN-WQ1-0815", "sensor_trace", 58, "SN-WQ1", [60, 270], ["EV-04"])
+            add_media(m, "photo", int((datetime.fromisoformat(e["raised_at"]) - START).days) + 1,
+                      e.get("verified_by") or e.get("owner") or "U-FA1",
+                      EVENT_PLACE.get(e["id"], [0, 0]), [e["id"]])
+add_media("MA-SN-WQ1-0815", "sensor_trace", 58, "SN-WQ1", EVENT_PLACE["EV-04"], ["EV-04"])
 for m in mb:
     add_media(f"MA-{m['id']}", "photo", int((datetime.fromisoformat(m["date"]) - START).days) + 1, "U-AE",
-              [round(random.uniform(-300, 300)), round(random.uniform(-250, 250))], [m["id"]])
-for c in captures:
+              ITEM_PLACE.get(m["item"], [0, 0]), [m["id"], m["item"]])
+perimeter = ftl[::4]
+for n, c in enumerate(captures):
     for p in c["photos"]:
-        add_media(p, "photo", int((datetime.fromisoformat(c["captured_at"]) - START).days) + 1, c["assigned_to"],
-                  [round(random.uniform(-450, 450)), round(random.uniform(-320, 340))], [c["id"]])
+        add_media(p, "photo", int((datetime.fromisoformat(c["captured_at"]) - START).days) + 1,
+                  c["assigned_to"], [round(x) for x in perimeter[n % len(perimeter)]], [c["id"]])
 
 # ---------------------------------------------------------------- compliance
 compliance_targets = [
