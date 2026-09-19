@@ -30,10 +30,13 @@
 
 * { box-sizing: border-box; }
 
+svg, img { max-width: 100%; }
+
 html { scroll-padding-top: 5rem; }
 
 body {
   margin: 0;
+  overflow-x: hidden;
   background: var(--paper);
   color: var(--ink);
   font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
@@ -89,15 +92,15 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--water); outline
 .plan figcaption { color: var(--slate); font-size: var(--step--1); padding: 0.5rem 0.25rem 0; }
 
 /* schematic ink */
-.plan .catchment { fill: #eef2f0; stroke: var(--line-strong); stroke-dasharray: 6 4; }
-.plan .buffer { fill: #f7ecdc; stroke: #d9b98a; }
-.plan .ftl { fill: none; stroke: var(--ink-soft); stroke-width: 2.2; }
-.plan .water { fill: var(--water-pale); stroke: var(--water); stroke-width: 1.2; }
-.plan .bund { stroke: #7a6248; stroke-width: 4; fill: none; stroke-linecap: round; }
-.plan .node { fill: var(--surface); stroke: var(--ink-soft); stroke-width: 1.4; }
-.plan .node-label { font-size: 11px; fill: var(--slate); }
-.plan .flag { fill: none; stroke: var(--red); stroke-width: 2; }
-.plan .flag-label { font-size: 11px; fill: var(--red); }
+.plan-ink .catchment { fill: #eef2f0; stroke: var(--line-strong); stroke-dasharray: 6 4; }
+.plan-ink .buffer { fill: #f7ecdc; stroke: #d9b98a; }
+.plan-ink .ftl { fill: none; stroke: var(--ink-soft); stroke-width: 2.2; }
+.plan-ink .water { fill: var(--water-pale); stroke: var(--water); stroke-width: 1.2; }
+.plan-ink .bund { stroke: #7a6248; stroke-width: 4; fill: none; stroke-linecap: round; }
+.plan-ink .node { fill: var(--surface); stroke: var(--ink-soft); stroke-width: 1.4; }
+.plan-ink .node-label { font-size: 11px; fill: var(--slate); }
+.plan-ink .flag { fill: none; stroke: var(--red); stroke-width: 2; }
+.plan-ink .flag-label { font-size: 11px; fill: var(--red); }
 
 /* ---------------------------------------------------------------- status */
 .status-strip {
@@ -215,3 +218,4 @@ footer.site p { max-width: 80ch; }
   .indicators div:nth-child(odd) { border-right: 0; }
   .indicators div:nth-child(2) { border-top: 1px solid var(--line); }
 }
+
