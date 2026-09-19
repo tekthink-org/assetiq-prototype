@@ -148,8 +148,9 @@
 
     /* event lists */
     const row = e => {
+      const href = `alerts.html#${e.id}`;
       const late = e.deadline && e.deadline < ov.as_of.slice(0, 10);
-      return `<li><p class="title">${e.title}</p><p class="meta">` +
+      return `<li><p class="title"><a href="${href}">${e.title}</a></p><p class="meta">` +
         `${AIQ.source(e.evidence_source)} · ${AIQ.zone(data, e.zone)} · ` +
         `<span class="owner">${(data.users.find(u => u.id === e.owner) || {}).role || e.owner}</span>` +
         (e.deadline ? ` · <span class="${late ? "late" : ""}">due ${AIQ.date(e.deadline)}</span>` : "") +
