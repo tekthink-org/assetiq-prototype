@@ -1,33 +1,33 @@
 Asset IQ Prototype — Demo Data Set v0.1
 Controlling reference: AIQ-ARCH-001 v0.5, Section 7
-Files: `aiq_demo_data_v0.1.json` (data, about 170 KB) · `gen_aiq_demo_data.py` (generator)
+Files: `aiq\\\_demo\\\_data\\\_v0.1.json` (data, about 170 KB) · `gen\\\_aiq\\\_demo\\\_data.py` (generator)
 As of: 15 Sep 2026, 18:00 · Period: 18 Jun – 15 Sep 2026 (90 days)
 1. Rules this data set follows
 Everything is fictitious. The lake, authority, people, contractor, laboratory, tribunal order and notification references are invented. No real water body, authority or person is described.
 Coordinates are synthetic. Geometry uses a local metre grid (x east, y north, lake centre at 0,0). It is not latitude and longitude. The prototype map should be schematic, with no real map tiles, so the lake cannot be read as sitting on a real place.
 Thresholds are illustrative. DO, pH, turbidity, BOD and level limits are placeholders, to be confirmed against the applicable standard for a real site.
-aiQube tags are empty. `aiqube_tags` is `null` on every event until aiQube is issued (AIQ-ARCH-001 OD-08). Screens use zone, evidence source and custody state in plain language instead.
-Progress is precomputed for display only. The simple weighted percentage in `restoration_works.precomputed_progress` stands in for the licensed computation, and is labelled as such.
-Regenerate, don't hand-edit. Change the generator and re-run `python3 gen_aiq_demo_data.py`. The seed is fixed, so output is repeatable. Event text that quotes numbers is produced from the generated series, so the text and charts stay consistent.
+aiQube tags are empty. `aiqube\\\_tags` is `null` on every event until aiQube is issued (AIQ-ARCH-001 OD-08). Screens use zone, evidence source and custody state in plain language instead.
+Progress is precomputed for display only. The simple weighted percentage in `restoration\\\_works.precomputed\\\_progress` stands in for the licensed computation, and is labelled as such.
+Regenerate, don't hand-edit. Change the generator and re-run `python3 gen\\\_aiq\\\_demo\\\_data.py`. The seed is fixed, so output is repeatable. Event text that quotes numbers is produced from the generated series, so the text and charts stay consistent.
 2. What is in the file
 Key	Contents
 `meta`	Version, as-of date, period, disclaimer
 `authority`, `users`	Demo Metro Lakes Authority; seven role-based users
 `asset`	Lake L-01 "Sarovara Tank (fictitious)": 41.9 ha at FTL; six zones; current custody state
-`custody_history`	Identified 2019 → preliminary notified 2023 → final notified 2025 → baselined 8 Jul 2026 → under restoration 20 Jul 2026
+`custody\\\_history`	Identified 2019 → preliminary notified 2023 → final notified 2025 → baselined 8 Jul 2026 → under restoration 20 Jul 2026
 `geometry`	FTL line, 30 m buffer, current water spread, catchment, downstream area, bund, weir, sluice, three inlets, one change polygon
-`spatial_baseline`	Accepted baseline SB-L01-v1; bathymetry (1,410 ML at FTL against 1,650 ML design, a 14.5% loss); versioned layers
-`departmental_records`, `record_discrepancies`	Revenue, Irrigation and notification areas; RD-001 north-bank dispute awaiting ruling
-`sensor_devices`, `sensor_readings`, `sensor_gaps`, `thresholds`	One water quality node and one level node; 877 readings every 3 hours; one 9-hour tamper gap
-`rainfall_daily`	90 days of rainfall, including 203 mm over 25–28 Jul
-`lab_reports`	Six reports; one BOD exceedance on 16 Aug
-`observation_passes`, `satellite_series`	Drone passes on 29 Jun and 11 Aug; monthly water spread and weed cover
-`restoration_works`	Work order with 7 quantity-based items; 13 measurement entries, each recorded by one officer and check-measured by another
+`spatial\\\_baseline`	Accepted baseline SB-L01-v1; bathymetry (1,410 ML at FTL against 1,650 ML design, a 14.5% loss); versioned layers
+`departmental\\\_records`, `record\\\_discrepancies`	Revenue, Irrigation and notification areas; RD-001 north-bank dispute awaiting ruling
+`sensor\\\_devices`, `sensor\\\_readings`, `sensor\\\_gaps`, `thresholds`	One water quality node and one level node; 877 readings every 3 hours; one 9-hour tamper gap
+`rainfall\\\_daily`	90 days of rainfall, including 203 mm over 25–28 Jul
+`lab\\\_reports`	Six reports; one BOD exceedance on 16 Aug
+`observation\\\_passes`, `satellite\\\_series`	Drone passes on 29 Jun and 11 Aug; monthly water spread and weed cover
+`restoration\\\_works`	Work order with 7 quantity-based items; 13 measurement entries, each recorded by one officer and check-measured by another
 `events`	The 20 fit-test events, placed on L-01, each with owner, deadline, consequence of inaction, status and evidence
-`field_captures`, `field_capture_summary`	24 scheduled captures in the final 30 days; 21 completed (87.5%)
-`media_ledger`	53 evidence items, each with timestamp, capturer, location and SHA-256 hash (synthetic)
-`compliance_targets`	Tribunal quarterly report (draft ready), pollution board monthly return, funding programme MIS
-`officer_view`	Precomputed content for screen 1: overall status, 8 indicators, changes this week, overdue items, decisions needed today
+`field\\\_captures`, `field\\\_capture\\\_summary`	24 scheduled captures in the final 30 days; 21 completed (87.5%)
+`media\\\_ledger`	53 evidence items, each with timestamp, capturer, location and SHA-256 hash (synthetic)
+`compliance\\\_targets`	Tribunal quarterly report (draft ready), pollution board monthly return, funding programme MIS
+`officer\\\_view`	Precomputed content for screen 1: overall status, 8 indicators, changes this week, overdue items, decisions needed today
 `portfolio`	L-01 plus nine lighter lakes (L-02 to L-10) for the portfolio view
 3. Planted scenarios
 Scenario	Where in the data	Screen	Proposal criterion
@@ -49,4 +49,4 @@ The effort figures for criterion 6 are illustrative. The proposal requires the r
 5. Open points
 Confirm the thresholds and the compliance report format to show first (AIQ-ARCH-001 OD-06).
 A practitioner, ideally from the survey partner, should review the events and figures for realism before any external demo.
-When aiQube is issued, populate `aiqube_tags` and re-run.
+When aiQube is issued, populate `aiqube\\\_tags` and re-run.

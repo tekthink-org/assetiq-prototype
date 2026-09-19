@@ -49,6 +49,71 @@ const AIQ = {
     const z = data.asset.zones.find(z => z.id === id);
     return z ? z.name : id;
   },
+
+  /* Daily summary of a sensor parameter: {day, v} per calendar day. */
+  daily(data, device, key, how = "min") {
+    const by = new Map();
+    data.sensor_readings.forEach(r => {
+      if (r.device !== device || r[key] === undefined) return;
+      const d = r.ts.slice(0, 10);
+      const cur = by.get(d);
+      if (cur === undefined) by.set(d, r[key]);
+      else if (how === "min") by.set(d, Math.min(cur, r[key]));
+      else if (how === "max") by.set(d, Math.max(cur, r[key]));
+      else by.set(d, r[key]);
+    });
+    return [...by.entries()].sort().map(([day, v]) => ({ day, v }));
+  },
+
+  /* Simple line chart into an <svg>. opts: {limit, limitLabel, markLowest, unit} */
+  drawChart(svg, points, opts = {}) {
+    const W = 560, H = 170, L = 38, R = 10, T = 12, B = 22;
+    const ns = "http://www.w3.org/2000/svg";
+    const ys = points.map(p => p.v);
+    let lo = Math.min(...ys, opts.limit ?? Infinity), hi = Math.max(...ys, opts.limit ?? -Infinity);
+    const padY = (hi - lo) * 0.15 || 1;
+    lo = Math.floor((lo - padY) * 10) / 10; hi = Math.ceil((hi + padY) * 10) / 10;
+    const x = i => L + i * (W - L - R) / (points.length - 1);
+    const y = v => T + (hi - v) * (H - T - B) / (hi - lo);
+
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("class", "chart");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", opts.label || "Time series");
+    const el = (name, attrs, text) => {
+      const n = document.createElementNS(ns, name);
+      Object.entries(attrs).forEach(([k, v]) => n.setAttribute(k, v));
+      if (text !== undefined) n.textContent = text;
+      return n;
+    };
+    const frag = document.createDocumentFragment();
+
+    [lo, hi].forEach(v => {
+      frag.appendChild(el("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), class: "grid-line" }));
+      frag.appendChild(el("text", { x: 2, y: y(v) + 3 }, v.toFixed(1)));
+    });
+    if (opts.limit !== undefined) {
+      frag.appendChild(el("line", { x1: L, x2: W - R, y1: y(opts.limit), y2: y(opts.limit), class: "limit" }));
+      frag.appendChild(el("text", { x: W - R, y: y(opts.limit) - 4, "text-anchor": "end", fill: "#94261f" },
+        opts.limitLabel || String(opts.limit)));
+    }
+    frag.appendChild(el("path", {
+      class: "plot",
+      d: points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join(" ")
+    }));
+    if (opts.markLowest) {
+      const i = ys.indexOf(Math.min(...ys));
+      frag.appendChild(el("circle", { cx: x(i), cy: y(points[i].v), r: 3.5, class: "mark" }));
+      frag.appendChild(el("text", {
+        x: Math.min(x(i) + 8, W - 120), y: y(points[i].v) + 4, fill: "#94261f"
+      }, `${points[i].v}${opts.unit || ""} on ${AIQ.date(points[i].day)}`));
+    }
+    [0, points.length - 1].forEach((i, n) => frag.appendChild(el("text", {
+      x: x(i), y: H - 6, "text-anchor": n ? "end" : "start"
+    }, AIQ.date(points[i].day))));
+    svg.appendChild(frag);
+  },
+
   /* Draws the lake plan into an <svg>. Local metre grid, y flipped for screen. */
   drawPlan(svg, data, opts = {}) {
     const g = data.geometry;
