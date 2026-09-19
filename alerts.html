@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Alerts — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="wordmark">Asset<span>IQ</span></span>
+    <span class="authority" id="authority"></span>
+  </div>
+</header>
+
+<div class="demo-banner">
+  <div class="wrap">Interactive wireframe. Nothing you click here is recorded.</div>
+</div>
+
+<main class="wrap">
+  <section class="lake-head">
+    <div class="row">
+      <div>
+        <h1>Alert, verify, act</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+    </div>
+  </section>
+
+  <div class="two-pane">
+    <div>
+      <div class="filters" id="filters"></div>
+      <ul class="alert-list" id="list"></ul>
+    </div>
+    <section class="detail" id="detail"></section>
+  </div>
+
+  <a class="backlink" href="lake.html">Back to the lake view</a>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>No alert is treated as fact until a person confirms it in the field. Every confirmation carries the name of the person who made it, the time, the place and the photograph they took.</p>
+    <p id="dataline"></p>
+  </div>
+</footer>
+
+<script src="assets/js/aiq-data.js"></script>
+<script>
+const FILTERS = [
+  { id: "action", label: "Needs action" },
+  { id: "open", label: "Open" },
+  { id: "closed", label: "Settled" },
+  { id: "all", label: "All" }
+];
+const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
+
+(async () => {
+  const data = await aiqLoad().catch(err => { console.error(err); return null; });
+  if (!data) {
+    document.getElementById("sub").textContent =
+      "The demonstration data did not load. Serve this folder over HTTP rather than opening the file directly.";
+    return;
+  }
+  const asOf = data.officer_view.as_of.slice(0, 10);
+  const byId = Object.fromEntries(data.events.map(e => [e.id, e]));
+  const userName = id => {
+    const u = data.users.find(u => u.id === id);
+    return u ? `${u.name}, ${u.role}` : (id || "—");
+  };
+  const late = e => e.deadline && e.deadline < asOf && OPEN_STATES.includes(e.status);
+  const state = e => ({
+    open: "Waiting on verification or action",
+    verified_action_open: "Verified, action open",
+    escalated: "Escalated for a ruling",
+    recorded: "Recorded, no action needed",
+    rejected: "Checked and dismissed",
+    closed: "Closed"
+  })[e.status] || e.status;
+
+  document.getElementById("authority").textContent = data.authority.name;
+  document.getElementById("sub").textContent =
+    `${data.asset.display_name} · ${data.events.length} events in the pilot period · as at ${AIQ.dateTime(data.officer_view.as_of)}`;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  let filter = "action";
+  const match = e => filter === "all" ? true
+    : filter === "closed" ? !OPEN_STATES.includes(e.status)
+    : filter === "open" ? OPEN_STATES.includes(e.status)
+    : late(e) || data.officer_view.needs_decision_today.some(d => d.event === e.id);
+
+  function renderFilters() {
+    document.getElementById("filters").innerHTML = FILTERS.map(f =>
+      `<button type="button" data-f="${f.id}" aria-pressed="${f.id === filter}">${f.label}</button>`).join("");
+    document.querySelectorAll("#filters button").forEach(b =>
+      b.addEventListener("click", () => { filter = b.dataset.f; renderFilters(); renderList(); }));
+  }
+
+  function renderList() {
+    const rows = data.events.filter(match);
+    document.getElementById("list").innerHTML = rows.length ? rows.map(e =>
+      `<li><button type="button" data-id="${e.id}" aria-current="${e.id === current}">
+         <span class="t">${e.title}</span>
+         <span class="m">${AIQ.source(e.evidence_source)} · ${AIQ.date(e.raised_at)}${
+           e.deadline ? ` · <span class="${late(e) ? "late" : ""}">due ${AIQ.date(e.deadline)}</span>` : ""}</span>
+       </button></li>`).join("")
+      : `<li><span class="m" style="display:block;padding:0.9rem">Nothing in this group.</span></li>`;
+    document.querySelectorAll("#list button").forEach(b =>
+      b.addEventListener("click", () => select(b.dataset.id)));
+  }
+
+  function chain(e) {
+    const steps = [];
+    steps.push({ cls: "done", step: "Raised", when: AIQ.dateTime(e.raised_at),
+      text: `${AIQ.source(e.evidence_source)}${e.raised_by ? ` · ${userName(e.raised_by)}` : ""}` });
+
+    if (e.status === "rejected") {
+      steps.push({ cls: "done", step: "Checked and dismissed",
+        when: e.closed_on ? AIQ.date(e.closed_on) : "",
+        text: `${userName(e.verified_by || e.owner)} checked it on the ground and found no fault. ` +
+              `The alert stays on record with the reason.` });
+    } else if (e.verified_by) {
+      steps.push({ cls: "done", step: "Verified in the field",
+        when: e.verified_on ? AIQ.date(e.verified_on) : "",
+        text: `${userName(e.verified_by)}. A second person confirms what the system raised.` });
+    } else if (OPEN_STATES.includes(e.status)) {
+      steps.push({ cls: "waiting", step: "Verification pending", when: "",
+        text: "Nobody has confirmed this on the ground yet." });
+    }
+
+    if (e.action) {
+      steps.push({ cls: e.status === "closed" ? "done" : "waiting", step: "Action", when: e.deadline ? `due ${AIQ.date(e.deadline)}` : "",
+        text: `${e.action} · ${userName(e.owner)}` });
+    } else if (e.status === "closed") {
+      steps.push({ cls: "done", step: "Closed", when: AIQ.date(e.closed_on), text: userName(e.owner) });
+    }
+    if (e.compliance_target) {
+      const c = data.compliance_targets.find(c => c.id === e.compliance_target);
+      if (c) steps.push({ cls: "waiting", step: "Feeds compliance", when: `due ${AIQ.date(c.next_due)}`,
+        text: `${c.report} — ${c.authority}` });
+    }
+    return steps;
+  }
+
+  function evidence(e) {
+    const ids = e.evidence || [];
+    const items = data.media_ledger.filter(m => ids.includes(m.id) || (m.linked_to || []).includes(e.id));
+    if (!items.length) return `<p class="wire-note">This event rests on records rather than captured media: ${ids.join(", ")}.</p>`;
+    return `<div class="evidence">` + items.map(m => `
+      <figure>
+        <div class="frame">${m.kind.replace(/_/g, " ")}</div>
+        <figcaption>
+          <span class="who">${userName(m.captured_by).split(",")[0]}</span> · ${AIQ.dateTime(m.captured_at)}<br>
+          grid ${m.location[0]}, ${m.location[1]}<br>
+          <span class="hash">${m.sha256.slice(0, 16)}…</span>
+        </figcaption>
+      </figure>`).join("") + `</div>`;
+  }
+
+  let current = location.hash.slice(1) || "EV-01";
+  if (!byId[current]) current = "EV-01";
+
+  function select(id) {
+    current = id;
+    history.replaceState(null, "", "#" + id);
+    const e = byId[id];
+    const badge = late(e) ? "late" : OPEN_STATES.includes(e.status) ? "open" : "closed";
+    document.getElementById("detail").innerHTML = `
+      <h2>${e.title}</h2>
+      <p class="tagline">
+        <span class="badge ${badge}">${late(e) ? "Overdue · " : ""}${state(e)}</span>
+        &nbsp;${AIQ.zone(data, e.zone)} · ${AIQ.source(e.evidence_source)} · ${AIQ.custody(e.custody_state)}
+      </p>
+      ${e.consequence_if_not_acted === "—" ? "" : `<div class="consequence">
+        <strong>${OPEN_STATES.includes(e.status) ? "If this is not acted on" : "Why it was raised"}</strong>
+        ${e.consequence_if_not_acted}
+      </div>`}
+      <p>${e.detail}</p>
+      <h3>What happened</h3>
+      <ul class="chain">${chain(e).map(s => `
+        <li class="${s.cls}">
+          <span class="step">${s.step}</span> <span class="when">${s.when}</span>
+          <p>${s.text}</p>
+        </li>`).join("")}</ul>
+      <h3>Evidence</h3>
+      ${evidence(e)}
+      <h3>Your options</h3>
+      <div class="actions">
+        <button type="button" disabled>${e.action ? e.action : "Record a decision"}</button>
+        <button type="button" class="secondary" disabled>Send to field for check</button>
+        <button type="button" class="secondary" disabled>Close with a reason</button>
+      </div>
+      <p class="wire-note">Buttons are shown to make the workflow legible. This wireframe records nothing.</p>`;
+    document.querySelectorAll("#list button").forEach(b =>
+      b.setAttribute("aria-current", b.dataset.id === id));
+  }
+
+  renderFilters();
+  renderList();
+  if (!data.events.filter(match).some(e => e.id === current)) { filter = "all"; renderFilters(); renderList(); }
+  select(current);
+  window.addEventListener("hashchange", () => {
+    const id = location.hash.slice(1);
+    if (byId[id]) { filter = "all"; renderFilters(); renderList(); select(id); }
+  });
+})();
+</script>
+</body>
+</html>
