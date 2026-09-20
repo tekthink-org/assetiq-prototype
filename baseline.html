@@ -97,17 +97,24 @@
   const rec = id => recs.find(r => r.id === id) || {};
   const role = id => { const u = data.users.find(u => u.id === id); return u ? `${u.name}, ${u.role}` : id; };
   const shown = { "DR-REV": true, "DR-IRR": true, "DR-NOT": false };
+  const hasBoundaries = g.record_boundaries && Object.keys(g.record_boundaries).length > 0;
 
   document.getElementById("authority").textContent = data.authority.name;
   document.getElementById("sub").textContent =
     `${a.display_name} · baseline ${sb.id} accepted ${AIQ.date(sb.accepted_on)} · ${recs.length} departmental records on the same lake`;
   document.getElementById("verdict").innerHTML =
     `<span class="dot amber"></span> <span class="reason">Baseline accepted; one boundary dispute referred for a ruling</span>`;
-  document.getElementById("dataline").textContent = data.geometry.record_boundaries_note;
+  document.getElementById("dataline").textContent = g.record_boundaries_note || data.meta.disclaimer;
 
   function drawPlan() {
     const svg = document.getElementById("plan");
     svg.innerHTML = "";
+    if (!hasBoundaries) {
+      AIQ.drawPlan(svg, data, { sensors: false, changes: false, labels: false });
+      document.getElementById("plan-caption").textContent =
+        `Accepted boundary, ${a.ftl_area_ha} ha. The departmental boundary layers are not in this copy of the demonstration data.`;
+      return;
+    }
     const overlays = Object.entries(g.record_boundaries)
       .filter(([id]) => shown[id])
       .map(([id]) => ({ points: g.record_boundaries[id], cls: "rec rec-" + id.toLowerCase().replace("dr-", "") }));
@@ -121,6 +128,7 @@
   }
 
   function renderToggles() {
+    if (!hasBoundaries) { document.getElementById("toggles").innerHTML = ""; return; }
     document.getElementById("toggles").innerHTML = Object.keys(g.record_boundaries).map(id =>
       `<button type="button" data-id="${id}" aria-pressed="${shown[id]}">${rec(id).department}</button>`).join("");
     document.querySelectorAll("#toggles button").forEach(b => b.addEventListener("click", () => {
