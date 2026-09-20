@@ -197,6 +197,13 @@ const AIQ = {
       }
     });
 
+    (opts.overlays || []).forEach(o => {
+      const el = document.createElementNS(ns, "polygon");
+      el.setAttribute("points", o.points.map(p => `${p[0]},${-p[1]}`).join(" "));
+      el.setAttribute("class", o.cls);
+      frag.appendChild(el);
+    });
+
     if (opts.sensors !== false) {
       (data.sensor_devices || []).forEach(s => {
         const c = document.createElementNS(ns, "rect");
