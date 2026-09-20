@@ -330,3 +330,31 @@ ul.plain li + li { margin-top: 0.7rem; }
 .up-flag { color: var(--green); }
 
 @media (max-width: 860px) { .field-cols { grid-template-columns: 1fr; } }
+
+/* ================================================================ baseline */
+.layer-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+.layer-toggles button {
+  font: inherit; font-size: var(--step--1); padding: 0.2rem 0.65rem; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 999px; color: var(--slate);
+}
+.layer-toggles button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+
+.plan-ink .rec { fill: none; stroke-width: 1.6; stroke-dasharray: 7 4; }
+.plan-ink .rec-rev { stroke: #9a4f8c; }
+.plan-ink .rec-irr { stroke: #b07216; }
+.plan-ink .rec-not { stroke: #2f6f4e; }
+.key { font-size: var(--step--1); margin-right: 0.75rem; white-space: nowrap; }
+.key::before { content: "—"; font-weight: 700; margin-right: 0.3rem; }
+.key-rev::before { color: #9a4f8c; }
+.key-irr::before { color: #b07216; }
+.key-not::before { color: #2f6f4e; }
+
+table.reg { border-collapse: collapse; width: 100%; font-size: var(--step--1); }
+table.reg th, table.reg td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--line); }
+table.reg thead th { background: #eef2f1; font-weight: 600; }
+table.reg tr.accepted td { background: #eaf3ec; font-weight: 600; }
+
+.disc + .disc { border-top: 1px solid var(--line); margin-top: 0.9rem; padding-top: 0.9rem; }
+.disc .ask { font-weight: 600; margin: 0 0 0.2rem; }
+.disc .why { color: var(--slate); font-size: var(--step--1); margin: 0.2rem 0 0; }
+.disc .why strong { color: var(--ink-soft); }
