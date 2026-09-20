@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Baseline and records — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="wordmark">Asset<span>IQ</span></span>
+    <span class="authority" id="authority"></span>
+  </div>
+</header>
+
+<div class="demo-banner">
+  <div class="wrap">Interactive wireframe. The departmental boundaries drawn here are illustrative, not survey products.</div>
+</div>
+
+<main class="wrap">
+  <section class="lake-head">
+    <div class="row">
+      <div>
+        <h1>One agreed boundary, and where the records disagree</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </section>
+
+  <div class="cols">
+    <div class="stack">
+      <section class="panel">
+        <h2>The boundary</h2>
+        <div class="body">
+          <div class="layer-toggles" id="toggles"></div>
+          <svg id="plan"></svg>
+          <p class="caption" id="plan-caption"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Depth and storage</h2>
+        <div class="body" id="bathy"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Layer versions</h2>
+        <ul class="events" id="layers"></ul>
+      </section>
+    </div>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>What each record says</h2>
+        <div class="body" id="register"></div>
+      </section>
+
+      <section class="panel decisions">
+        <h2>Where they disagree</h2>
+        <div class="body" id="discrepancies"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Who produced this, and who accepted it</h2>
+        <div class="body" id="provenance"></div>
+      </section>
+    </div>
+  </div>
+
+  <a class="backlink" href="lake.html">Back to the lake view</a>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Enforcement against encroachment depends on a boundary that exists, is current, and is defensible. Where the boundary is unsettled, every removal action is contestable, and the contest is decided on the quality of the spatial evidence.</p>
+    <p id="dataline"></p>
+  </div>
+</footer>
+
+<script src="assets/js/aiq-data.js"></script>
+<script>
+(async () => {
+  const data = await aiqLoad().catch(err => { console.error(err); return null; });
+  if (!data) {
+    document.getElementById("sub").textContent = "The demonstration data did not load. Serve this folder over HTTP.";
+    return;
+  }
+  const a = data.asset, sb = data.spatial_baseline, g = data.geometry;
+  const recs = data.departmental_records;
+  const rec = id => recs.find(r => r.id === id) || {};
+  const role = id => { const u = data.users.find(u => u.id === id); return u ? `${u.name}, ${u.role}` : id; };
+  const shown = { "DR-REV": true, "DR-IRR": true, "DR-NOT": false };
+
+  document.getElementById("authority").textContent = data.authority.name;
+  document.getElementById("sub").textContent =
+    `${a.display_name} · baseline ${sb.id} accepted ${AIQ.date(sb.accepted_on)} · ${recs.length} departmental records on the same lake`;
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot amber"></span> <span class="reason">Baseline accepted; one boundary dispute referred for a ruling</span>`;
+  document.getElementById("dataline").textContent = data.geometry.record_boundaries_note;
+
+  function drawPlan() {
+    const svg = document.getElementById("plan");
+    svg.innerHTML = "";
+    const overlays = Object.entries(g.record_boundaries)
+      .filter(([id]) => shown[id])
+      .map(([id]) => ({ points: g.record_boundaries[id], cls: "rec rec-" + id.toLowerCase().replace("dr-", "") }));
+    AIQ.drawPlan(svg, data, { overlays, sensors: false, changes: false, labels: false });
+    document.getElementById("plan-caption").innerHTML =
+      `Accepted boundary in dark outline, ${a.ftl_area_ha} ha. ` +
+      Object.keys(g.record_boundaries).filter(id => shown[id])
+        .map(id => `<span class="key key-${id.toLowerCase().replace("dr-", "")}">${rec(id).department}, ${rec(id).ftl_area_ha} ha</span>`)
+        .join(" ") +
+      ` <span class="wire-note">${g.record_boundaries_note}</span>`;
+  }
+
+  function renderToggles() {
+    document.getElementById("toggles").innerHTML = Object.keys(g.record_boundaries).map(id =>
+      `<button type="button" data-id="${id}" aria-pressed="${shown[id]}">${rec(id).department}</button>`).join("");
+    document.querySelectorAll("#toggles button").forEach(b => b.addEventListener("click", () => {
+      shown[b.dataset.id] = !shown[b.dataset.id];
+      renderToggles(); drawPlan();
+    }));
+  }
+
+  /* register */
+  const rows = recs.map(r => [r.department, r.vintage, `${r.ftl_area_ha} ha`, "departmental record"])
+    .concat([[`Survey baseline ${sb.id}`, AIQ.date(sb.accepted_on), `${sb.ftl_area_ha} ha`, "accepted by the authority"]]);
+  document.getElementById("register").innerHTML =
+    `<table class="reg"><thead><tr><th>Record</th><th>Vintage</th><th>Area at FTL</th><th>Standing</th></tr></thead><tbody>` +
+    rows.map((r, i) => `<tr${i === rows.length - 1 ? ' class="accepted"' : ""}>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("") +
+    `</tbody></table>
+     <p class="wire-note">The spread between the oldest and newest record is
+       ${(Math.max(...recs.map(r => r.ftl_area_ha)) - Math.min(...recs.map(r => r.ftl_area_ha))).toFixed(1)} ha.
+       Nothing is overwritten: every version stays on record, so an old boundary can be produced for an audit.</p>`;
+
+  /* discrepancies */
+  document.getElementById("discrepancies").innerHTML = data.record_discrepancies.map(d => `
+    <div class="disc">
+      <p class="ask">${d.subject}</p>
+      <p class="why">${d.difference}</p>
+      <p class="why"><strong>Our position:</strong> ${d.baseline_position}</p>
+      <p class="why">
+        <span class="badge ${d.status === "escalated_for_ruling" ? "open" : "closed"}">${d.status.replace(/_/g, " ")}</span>
+        ${d.ruling ? `· ${d.ruling}` : `· with ${role(d.owner)}${d.ruling_due ? `, due ${AIQ.date(d.ruling_due)}` : ""}`}
+      </p>
+    </div>`).join("") +
+    `<p class="wire-note">Differences are documented and escalated for a ruling, not resolved quietly by us. The authority decides which record governs, and that decision is recorded.</p>`;
+
+  /* bathymetry */
+  const b = sb.bathymetry;
+  document.getElementById("bathy").innerHTML = `
+    <table class="reg"><tbody>
+      <tr><td>Surveyed</td><td>${AIQ.date(b.surveyed_on)}</td></tr>
+      <tr><td>Mean depth</td><td>${b.mean_depth_m} m</td></tr>
+      <tr><td>Deepest point</td><td>${b.max_depth_m} m</td></tr>
+      <tr><td>Storage at full tank level</td><td>${b.storage_at_ftl_ml.toLocaleString("en-IN")} ML</td></tr>
+      <tr><td>Design storage on record</td><td>${b.design_storage_ml.toLocaleString("en-IN")} ML</td></tr>
+      <tr class="accepted"><td>Storage lost to silt</td><td>${b.storage_loss_pct}%</td></tr>
+    </tbody></table>
+    <p class="wire-note">${b.note}. This is the baseline against which desilting is measured: without it, a contractor's quantity has nothing to be checked against.</p>`;
+
+  /* layers */
+  document.getElementById("layers").innerHTML = sb.layers.map(l =>
+    `<li><p class="title">${l.layer} <span class="ans no">v${l.version}</span></p>
+      <p class="meta">${AIQ.date(l.date)}${l.version > 1 ? " · earlier version kept" : ""}</p></li>`).join("");
+
+  /* provenance */
+  document.getElementById("provenance").innerHTML = `
+    <table class="reg"><tbody>
+      <tr><td>Produced by</td><td>${role(sb.produced_by)}</td></tr>
+      <tr><td>Method</td><td>${sb.method.replace(" (synthetic)", "")}</td></tr>
+      <tr><td>Accepted by</td><td>${role(sb.accepted_by)}</td></tr>
+      <tr><td>Accepted on</td><td>${AIQ.date(sb.accepted_on)}</td></tr>
+      <tr class="accepted"><td>Custody state</td><td>${AIQ.custody(a.custody_state)}</td></tr>
+    </tbody></table>
+    <p class="wire-note">Acceptance is the test that matters: the authority takes the baseline as usable for its own purposes, including in proceedings. Until it does, everything built on it is provisional.</p>`;
+
+  renderToggles();
+  drawPlan();
+})();
+</script>
+</body>
+</html>
