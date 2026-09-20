@@ -104,7 +104,8 @@
         p: [`Overall progress is ${works.precomputed_progress.overall_pct}% by sanctioned value. Each figure is computed from measured quantity against sanctioned quantity, recorded by one officer and check-measured by another.`,
             works.precomputed_progress.items.map(i => `${(works.items.find(x => x.id === i.item) || {}).name}: ${i.pct}%`).join("; ") + "."] },
       { h: "4. Action taken and pending", src: ["Event register"],
-        p: [openList()] },
+        table: actionTable(),
+        p: [] },
       { h: "Annexure — evidence register", src: ["Media ledger"],
         p: [`${photos} items of evidence, each carrying the name of the person who captured it, the time, the location and an integrity hash. Any figure in this submission can be traced to the evidence that produced it.`] }
     ],
@@ -138,14 +139,28 @@
     ]
   };
 
-  function openList() {
-    const open = data.events.map(AIQ.withAction)
-      .filter(e => ["open", "verified_action_open", "escalated"].includes(e.status));
-    const done = data.events.map(AIQ.withAction).filter(e => e.demo_action);
-    const lines = open.map(e => `${e.title} — ${e.action || "under verification"}, with ${(data.users.find(u => u.id === e.owner) || {}).role || e.owner}`);
-    const doneLines = done.map(e => `${e.title} — ${e.demo_action.label} on ${AIQ.date(e.demo_action.at)}`);
-    return (doneLines.length ? `Action recorded: ${doneLines.join("; ")}. ` : "") +
-      (lines.length ? `Pending: ${lines.join("; ")}.` : "No action is pending.");
+  /* Items for the action table. An event about this submission's own deadline
+     is left out: a report should not report on itself. */
+  function actionEvents() {
+    return data.events.map(AIQ.withAction).filter(e =>
+      e.condition !== "obligation" && !e.compliance_target &&
+      (["open", "verified_action_open", "escalated"].includes(e.status) || e.demo_action));
+  }
+
+  function actionTable() {
+    const role = id => (data.users.find(u => u.id === id) || {}).role || id;
+    const rows = actionEvents().map(e => {
+      const done = Boolean(e.demo_action);
+      return [
+        e.title,
+        done ? e.demo_action.label : (e.action || (e.status === "escalated" ? "Referred for a ruling" : "Field verification")),
+        role(e.owner).replace(" (check-measurement)", ""),
+        done ? "Action taken" : (e.status === "escalated" ? "Awaiting ruling" : "Pending"),
+        done ? AIQ.date(e.demo_action.at) : (e.deadline ? `due ${AIQ.date(e.deadline)}` : "—")
+      ];
+    });
+    return [["Item", "Action", "With", "Status", "Date"]].concat(
+      rows.length ? rows : [["No action is pending on this site.", "—", "—", "—", "—"]]);
   }
 
   let target = "CT-TRIB";
@@ -165,12 +180,11 @@
     const secs = templates[target]();
     document.getElementById("sources").innerHTML = secs.map(s =>
       `<li><p class="title">${s.h}</p><p class="meta">${(s.src || []).join(" · ")}</p></li>`).join("");
-    const eff = data.compliance_targets[0].effort_baseline;
-    document.getElementById("effort").innerHTML = target === "CT-TRIB" && eff
-      ? `<p>Assembling this submission by hand takes about <strong>${eff.manual_person_hours} person-hours</strong> today.
-         Reviewing and signing a generated draft takes about <strong>${eff.generated_draft_review_person_hours}</strong>.</p>
-         <p class="wire-note">${eff.note}</p>`
-      : `<p class="wire-note">No effort baseline has been recorded for this submission. The authority records it at pilot start, before any saving is claimed.</p>`;
+    document.getElementById("effort").innerHTML =
+      `<p>Every section above is generated from records the field team and the survey partner already produced.
+        The saving, if any, is the difference between assembling this by hand and reviewing a generated draft.</p>
+       <p class="wire-note">No effort figure is shown because none has been measured. The authority records the
+        person-hours its current submission takes at the start of the pilot; only then can a comparison be made honestly.</p>`;
   }
 
   function clearDraft() { document.getElementById("draft").innerHTML = ""; }
