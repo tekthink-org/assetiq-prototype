@@ -141,6 +141,9 @@
       `<div><p class="k"><span class="dot ${i.status}"></span>${i.label}</p><p class="v">${i.text}</p></div>`).join("");
 
     /* decisions */
+    const overdue = ov.overdue.filter(id => !settled(id));
+    const decisions = ov.needs_decision_today.filter(d => !settled(d.event));
+
     document.getElementById("decisions").innerHTML = (decisions.length ? decisions : []).map(d => {
       const e = byId[d.event];
       return `<li><div><p class="ask"><a href="alerts.html#${e.id}">${d.decision}</a></p>` +
@@ -157,8 +160,6 @@
         (e.deadline ? ` · <span class="${late ? "late" : ""}">due ${AIQ.date(e.deadline)}</span>` : "") +
         `</p><p class="meta">${e.detail}</p></li>`;
     };
-    const overdue = ov.overdue.filter(id => !settled(id));
-    const decisions = ov.needs_decision_today.filter(d => !settled(d.event));
     document.getElementById("overdue-head").textContent = `Overdue (${overdue.length})`;
     document.getElementById("overdue").innerHTML = overdue.length
       ? overdue.map(id => row(byId[id])).join("")
