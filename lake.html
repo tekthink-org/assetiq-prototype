@@ -119,7 +119,8 @@
   try {
     const data = await aiqLoad();
     const a = data.asset, ov = data.officer_view, works = data.restoration_works;
-    const byId = Object.fromEntries(data.events.map(e => [e.id, e]));
+    const byId = Object.fromEntries(data.events.map(e => [e.id, AIQ.withAction(e)]));
+    const settled = id => !["open", "verified_action_open", "escalated", "recorded"].includes(byId[id].status);
 
     document.getElementById("authority").textContent = data.authority.name;
     document.getElementById("lake-name").textContent = a.display_name;
@@ -140,11 +141,11 @@
       `<div><p class="k"><span class="dot ${i.status}"></span>${i.label}</p><p class="v">${i.text}</p></div>`).join("");
 
     /* decisions */
-    document.getElementById("decisions").innerHTML = ov.needs_decision_today.map(d => {
+    document.getElementById("decisions").innerHTML = (decisions.length ? decisions : []).map(d => {
       const e = byId[d.event];
-      return `<li><div><p class="ask">${d.decision}</p>` +
+      return `<li><div><p class="ask"><a href="alerts.html#${e.id}">${d.decision}</a></p>` +
         `<p class="why">${e.title}. If not acted on: ${e.consequence_if_not_acted.toLowerCase()}</p></div></li>`;
-    }).join("");
+    }).join("") || `<li><div><p class="ask">Nothing waiting on you</p><p class="why">Every decision on this lake has been recorded.</p></div></li>`;
 
     /* event lists */
     const row = e => {
@@ -156,8 +157,12 @@
         (e.deadline ? ` · <span class="${late ? "late" : ""}">due ${AIQ.date(e.deadline)}</span>` : "") +
         `</p><p class="meta">${e.detail}</p></li>`;
     };
-    document.getElementById("overdue-head").textContent = `Overdue (${ov.overdue.length})`;
-    document.getElementById("overdue").innerHTML = ov.overdue.map(id => row(byId[id])).join("");
+    const overdue = ov.overdue.filter(id => !settled(id));
+    const decisions = ov.needs_decision_today.filter(d => !settled(d.event));
+    document.getElementById("overdue-head").textContent = `Overdue (${overdue.length})`;
+    document.getElementById("overdue").innerHTML = overdue.length
+      ? overdue.map(id => row(byId[id])).join("")
+      : `<li><p class="meta">Nothing overdue. Items settled in this browser tab are not saved anywhere.</p></li>`;
     document.getElementById("changed").innerHTML = ov.what_changed_this_week.map(id => row(byId[id])).join("");
 
     /* charts */

@@ -29,6 +29,7 @@
       <div>
         <h1>Alert, verify, act</h1>
         <p class="sub" id="sub"></p>
+        <p class="sub" id="demo-state"></p>
       </div>
     </div>
   </section>
@@ -69,7 +70,9 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
     return;
   }
   const asOf = data.officer_view.as_of.slice(0, 10);
-  const byId = Object.fromEntries(data.events.map(e => [e.id, e]));
+  const rawById = Object.fromEntries(data.events.map(e => [e.id, e]));
+  const byId = id => AIQ.withAction(rawById[id]);
+  const allEvents = () => data.events.map(AIQ.withAction);
   const userName = id => {
     const u = data.users.find(u => u.id === id);
     return u ? `${u.name}, ${u.role}` : (id || "—");
@@ -93,7 +96,7 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
   const match = e => filter === "all" ? true
     : filter === "closed" ? !OPEN_STATES.includes(e.status)
     : filter === "open" ? OPEN_STATES.includes(e.status)
-    : late(e) || data.officer_view.needs_decision_today.some(d => d.event === e.id);
+    : OPEN_STATES.includes(e.status) && (late(e) || data.officer_view.needs_decision_today.some(d => d.event === e.id));
 
   function renderFilters() {
     document.getElementById("filters").innerHTML = FILTERS.map(f =>
@@ -103,7 +106,7 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
   }
 
   function renderList() {
-    const rows = data.events.filter(match);
+    const rows = allEvents().filter(match);
     document.getElementById("list").innerHTML = rows.length ? rows.map(e =>
       `<li><button type="button" data-id="${e.id}" aria-current="${e.id === current}">
          <span class="t">${e.title}</span>
@@ -113,6 +116,36 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
       : `<li><span class="m" style="display:block;padding:0.9rem">Nothing in this group.</span></li>`;
     document.querySelectorAll("#list button").forEach(b =>
       b.addEventListener("click", () => select(b.dataset.id)));
+  }
+
+
+  function actionPanel(e) {
+    if (e.demo_action) {
+      return `<div class="taken">
+        <strong>${e.demo_action.label}</strong>
+        <p>${e.demo_action.by} · ${AIQ.dateTime(e.demo_action.at)}${e.demo_action.note ? ` · “${e.demo_action.note}”` : ""}</p>
+      </div>`;
+    }
+    if (!OPEN_STATES.includes(e.status)) {
+      return `<p class="wire-note">This one is settled. Nothing is waiting on you.</p>`;
+    }
+    return `<div class="actions">
+        <button type="button" id="do-act" data-label="${e.action || "Decision recorded"}">${e.action || "Record a decision"}</button>
+        <button type="button" class="secondary" id="do-field">Send to field for check</button>
+        <button type="button" class="secondary" id="do-close">Close with a reason</button>
+      </div>
+      <label class="reason-row" for="reason">Note (optional)</label>
+      <input id="reason" type="text" placeholder="e.g. removal scheduled for Monday with the revenue team">`;
+  }
+
+  function renderBanner() {
+    const n = AIQ.actions.count();
+    const el = document.getElementById("demo-state");
+    el.innerHTML = n
+      ? `${n} decision${n > 1 ? "s" : ""} recorded in this tab. <button type="button" class="linkish" id="reset">Reset the demonstration</button>`
+      : "";
+    const r = document.getElementById("reset");
+    if (r) r.addEventListener("click", () => { AIQ.actions.clear(); renderList(); select(current); renderBanner(); });
   }
 
   function chain(e) {
@@ -135,11 +168,16 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
     }
 
     if (e.action) {
-      steps.push({ cls: e.status === "closed" ? "done" : "waiting", step: "Action", when: e.deadline ? `due ${AIQ.date(e.deadline)}` : "",
+      steps.push({ cls: (e.status === "closed" || e.demo_action) ? "done" : "waiting", step: "Action", when: e.deadline ? `due ${AIQ.date(e.deadline)}` : "",
         text: `${e.action} · ${userName(e.owner)}` });
     } else if (e.status === "closed") {
       steps.push({ cls: "done", step: "Closed", when: AIQ.date(e.closed_on), text: userName(e.owner) });
     }
+    if (e.demo_action) {
+      steps.push({ cls: "done", step: e.demo_action.label, when: AIQ.dateTime(e.demo_action.at),
+        text: `${e.demo_action.by}${e.demo_action.note ? ` · “${e.demo_action.note}”` : ""}` });
+    }
+
     if (e.compliance_target) {
       const c = data.compliance_targets.find(c => c.id === e.compliance_target);
       if (c) steps.push({ cls: "waiting", step: "Feeds compliance", when: `due ${AIQ.date(c.next_due)}`,
@@ -164,12 +202,12 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
   }
 
   let current = location.hash.slice(1) || "EV-01";
-  if (!byId[current]) current = "EV-01";
+  if (!rawById[current]) current = "EV-01";
 
   function select(id) {
     current = id;
     history.replaceState(null, "", "#" + id);
-    const e = byId[id];
+    const e = byId(id);
     const badge = late(e) ? "late" : OPEN_STATES.includes(e.status) ? "open" : "closed";
     document.getElementById("detail").innerHTML = `
       <h2>${e.title}</h2>
@@ -191,23 +229,41 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
       <h3>Evidence</h3>
       ${evidence(e)}
       <h3>Your options</h3>
-      <div class="actions">
-        <button type="button" disabled>${e.action ? e.action : "Record a decision"}</button>
-        <button type="button" class="secondary" disabled>Send to field for check</button>
-        <button type="button" class="secondary" disabled>Close with a reason</button>
-      </div>
-      <p class="wire-note">Buttons are shown to make the workflow legible. This wireframe records nothing.</p>`;
+      ${actionPanel(e)}
+      ${e.demo_action ? `<p class="wire-note">Recorded in this browser tab only, at ${AIQ.dateTime(e.demo_action.at)}. It disappears when the page is refreshed.
+        <button type="button" class="linkish" id="undo">Undo</button></p>` : `<p class="wire-note">Decisions taken here live in this browser tab only. Nothing is sent anywhere.</p>`}`;
+
+    const panel = document.getElementById("detail");
+    const act = (status, label) => {
+      const note = (document.getElementById("reason") || {}).value || "";
+      AIQ.actions.record(e.id, { status, label, note, by: "R. Varma, Nodal Officer" });
+      renderList(); select(e.id); renderBanner();
+    };
+    const b1 = document.getElementById("do-act");
+    if (b1) b1.addEventListener("click", () => act("closed", b1.dataset.label));
+    const b2 = document.getElementById("do-field");
+    if (b2) b2.addEventListener("click", () => act("open", "Sent to the field for a check"));
+    const b3 = document.getElementById("do-close");
+    if (b3) b3.addEventListener("click", () => act("rejected", "Closed with a reason"));
+    const u = document.getElementById("undo");
+    if (u) u.addEventListener("click", () => {
+      const a = AIQ.actions.all(); delete a[e.id];
+      sessionStorage.setItem(AIQ.actions.KEY, JSON.stringify(a));
+      renderList(); select(e.id); renderBanner();
+    });
+
     document.querySelectorAll("#list button").forEach(b =>
       b.setAttribute("aria-current", b.dataset.id === id));
   }
 
   renderFilters();
   renderList();
-  if (!data.events.filter(match).some(e => e.id === current)) { filter = "all"; renderFilters(); renderList(); }
+  renderBanner();
+  if (!allEvents().filter(match).some(e => e.id === current)) { filter = "all"; renderFilters(); renderList(); }
   select(current);
   window.addEventListener("hashchange", () => {
     const id = location.hash.slice(1);
-    if (byId[id]) { filter = "all"; renderFilters(); renderList(); select(id); }
+    if (rawById[id]) { filter = "all"; renderFilters(); renderList(); select(id); }
   });
 })();
 </script>

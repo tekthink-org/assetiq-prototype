@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Compliance — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="wordmark">Asset<span>IQ</span></span>
+    <span class="authority" id="authority"></span>
+  </div>
+</header>
+
+<div class="demo-banner">
+  <div class="wrap">Interactive wireframe. The drafts below are assembled from the same demonstration data the field team entered.</div>
+</div>
+
+<main class="wrap">
+  <section class="lake-head">
+    <div class="row">
+      <div>
+        <h1>One dataset, one draft per authority</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+    </div>
+  </section>
+
+  <div class="two-pane">
+    <div>
+      <div class="filters" id="targets"></div>
+      <div class="panel">
+        <h2>Where the content comes from</h2>
+        <ul class="events" id="sources"></ul>
+      </div>
+      <div class="panel" style="margin-top:1.25rem">
+        <h2>Effort</h2>
+        <div class="body" id="effort"></div>
+      </div>
+    </div>
+
+    <section class="detail">
+      <h2 id="report-name"></h2>
+      <p class="tagline" id="report-meta"></p>
+      <div class="actions">
+        <button type="button" id="assemble">Assemble the draft</button>
+        <button type="button" class="secondary" id="reset-draft">Clear</button>
+      </div>
+      <p class="wire-note">Assembly runs in front of you so you can see which records each section draws on. Nothing is filed.</p>
+      <div id="draft" class="draft"></div>
+    </section>
+  </div>
+
+  <a class="backlink" href="lake.html">Back to the lake view</a>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>The field team enters observable facts once, with evidence attached. Each authority's submission is the same dataset under a different template.</p>
+    <p id="dataline"></p>
+  </div>
+</footer>
+
+<script src="assets/js/aiq-data.js"></script>
+<script>
+(async () => {
+  const data = await aiqLoad().catch(err => { console.error(err); return null; });
+  if (!data) {
+    document.getElementById("sub").textContent = "The demonstration data did not load. Serve this folder over HTTP.";
+    return;
+  }
+  const a = data.asset, works = data.restoration_works;
+  const byId = Object.fromEntries(data.events.map(e => [e.id, AIQ.withAction(e)]));
+  const doSeries = AIQ.daily(data, "SN-WQ1", "do_mg_l", "min");
+  const lowest = doSeries.reduce((m, p) => p.v < m.v ? p : m, doSeries[0]);
+  const labFlag = data.lab_reports.find(r => r.flag === "above_limit");
+  const sampled = data.lab_reports.length;
+  const photos = data.media_ledger.length;
+
+  document.getElementById("authority").textContent = data.authority.name;
+  document.getElementById("sub").textContent =
+    `${a.display_name} · three authorities, one underlying record · as at ${AIQ.dateTime(data.officer_view.as_of)}`;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  /* Each template pulls from the same records; only the shape differs. */
+  const templates = {
+    "CT-TRIB": t => [
+      { h: "1. Boundary protection", src: ["Spatial baseline", "Drone passes", "Field verification", "Departmental records"],
+        p: [`The full tank level boundary for ${a.display_name} was surveyed and accepted on ${AIQ.date(data.spatial_baseline.accepted_on)}, covering ${a.ftl_area_ha} ha.`,
+            `${byId["EV-01"].detail}`,
+            `A difference between two departmental records on the north bank is recorded as ${data.record_discrepancies[0].id} and has been referred for a ruling: ${data.record_discrepancies[0].difference}.`] },
+      { h: "2. Water quality", src: ["Sensor node SN-WQ1", `${sampled} laboratory reports`, "Field inspection"],
+        p: [`Continuous monitoring has been in place since ${AIQ.date(data.sensor_devices[0].commissioned_on)}. The lowest daily dissolved oxygen in the period was ${lowest.v} mg/L on ${AIQ.date(lowest.day)}.`,
+            labFlag ? `Laboratory report ${labFlag.id} of ${AIQ.date(labFlag.sampled_on)} recorded BOD at ${labFlag.bod_mg_l} mg/L at ${labFlag.point}.` : "",
+            `${byId["EV-07"].detail}`] },
+      { h: "3. Restoration progress", src: [`Work order ${works.id}`, `${works.measurements.length} check-measured entries`],
+        p: [`Overall progress is ${works.precomputed_progress.overall_pct}% by sanctioned value. Each figure is computed from measured quantity against sanctioned quantity, recorded by one officer and check-measured by another.`,
+            works.precomputed_progress.items.map(i => `${(works.items.find(x => x.id === i.item) || {}).name}: ${i.pct}%`).join("; ") + "."] },
+      { h: "4. Action taken and pending", src: ["Event register"],
+        p: [openList()] },
+      { h: "Annexure — evidence register", src: ["Media ledger"],
+        p: [`${photos} items of evidence, each carrying the name of the person who captured it, the time, the location and an integrity hash. Any figure in this submission can be traced to the evidence that produced it.`] }
+    ],
+    "CT-SPCB": t => [
+      { h: "Monitoring summary", src: ["Sensor node SN-WQ1", `${sampled} laboratory reports`],
+        p: [`Site: ${a.display_name}, ${a.zone}. Water spread ${data.satellite_series.at(-1).water_spread_ha} ha.`,
+            `Continuous parameters: dissolved oxygen, pH, turbidity, temperature, conductivity, recorded every three hours.`] },
+      { h: "Parameter table", table: [
+          ["Parameter", "Period value", "Reference used"],
+          ["Dissolved oxygen (lowest daily)", `${lowest.v} mg/L on ${AIQ.date(lowest.day)}`, `alert below ${data.thresholds.do_mg_l.alert_below} mg/L`],
+          ["pH", `within ${data.thresholds.ph.alert_below}–${data.thresholds.ph.alert_above}`, "illustrative"],
+          ["BOD (laboratory)", labFlag ? `${labFlag.bod_mg_l} mg/L on ${AIQ.date(labFlag.sampled_on)}` : "—", "illustrative"],
+          ["Samples drawn", `${sampled}`, "as scheduled"]
+        ], src: ["Sensor readings", "Laboratory reports"] },
+      { h: "Incidents and response", src: ["Event register"],
+        p: [`${byId["EV-04"].detail}`, `${byId["EV-07"].detail}`] }
+    ],
+    "CT-FUND": t => [
+      { h: "Physical progress", table: [["Item", "Sanctioned", "Executed", "Progress"]].concat(
+          works.precomputed_progress.items.map(i => {
+            const it = works.items.find(x => x.id === i.item) || {};
+            const u = (it.unit || "").replace("m3", "m³").replace("m2", "m²");
+            const q = n => Number(n).toLocaleString("en-IN");
+            return [it.name, `${q(it.sanctioned_qty)} ${u}`, `${q(i.executed_qty)} ${u}`, `${i.pct}%`];
+          })), src: [`Work order ${works.id}`, "Measurement book entries"] },
+      { h: "Status note", src: ["Event register"],
+        p: [`Overall physical progress ${works.precomputed_progress.overall_pct}% by sanctioned value as at ${AIQ.date(works.precomputed_progress.as_of)}.`,
+            `${byId["EV-13"].detail}`] },
+      { h: "Evidence", src: ["Media ledger"],
+        p: [`Each measurement carries a dated, located photograph. ${works.measurements.length} entries have been check-measured by a second officer.`] }
+    ]
+  };
+
+  function openList() {
+    const open = data.events.map(AIQ.withAction)
+      .filter(e => ["open", "verified_action_open", "escalated"].includes(e.status));
+    const done = data.events.map(AIQ.withAction).filter(e => e.demo_action);
+    const lines = open.map(e => `${e.title} — ${e.action || "under verification"}, with ${(data.users.find(u => u.id === e.owner) || {}).role || e.owner}`);
+    const doneLines = done.map(e => `${e.title} — ${e.demo_action.label} on ${AIQ.date(e.demo_action.at)}`);
+    return (doneLines.length ? `Action recorded: ${doneLines.join("; ")}. ` : "") +
+      (lines.length ? `Pending: ${lines.join("; ")}.` : "No action is pending.");
+  }
+
+  let target = "CT-TRIB";
+
+  function renderTargets() {
+    document.getElementById("targets").innerHTML = data.compliance_targets.map(c =>
+      `<button type="button" data-t="${c.id}" aria-pressed="${c.id === target}">${c.report}</button>`).join("");
+    document.querySelectorAll("#targets button").forEach(b =>
+      b.addEventListener("click", () => { target = b.dataset.t; renderTargets(); renderHead(); clearDraft(); }));
+  }
+
+  function renderHead() {
+    const c = data.compliance_targets.find(c => c.id === target);
+    document.getElementById("report-name").textContent = c.report;
+    document.getElementById("report-meta").textContent =
+      `${c.authority} · due ${AIQ.date(c.next_due)} · ${c.frequency}`;
+    const secs = templates[target]();
+    document.getElementById("sources").innerHTML = secs.map(s =>
+      `<li><p class="title">${s.h}</p><p class="meta">${(s.src || []).join(" · ")}</p></li>`).join("");
+    const eff = data.compliance_targets[0].effort_baseline;
+    document.getElementById("effort").innerHTML = target === "CT-TRIB" && eff
+      ? `<p>Assembling this submission by hand takes about <strong>${eff.manual_person_hours} person-hours</strong> today.
+         Reviewing and signing a generated draft takes about <strong>${eff.generated_draft_review_person_hours}</strong>.</p>
+         <p class="wire-note">${eff.note}</p>`
+      : `<p class="wire-note">No effort baseline has been recorded for this submission. The authority records it at pilot start, before any saving is claimed.</p>`;
+  }
+
+  function clearDraft() { document.getElementById("draft").innerHTML = ""; }
+
+  function assemble() {
+    const secs = templates[target]();
+    const out = document.getElementById("draft");
+    out.innerHTML = "";
+    secs.forEach((s, i) => setTimeout(() => {
+      const block = document.createElement("section");
+      block.className = "draft-section";
+      block.innerHTML = `<h3>${s.h}</h3>` +
+        (s.p || []).filter(Boolean).map(t => `<p>${t}</p>`).join("") +
+        (s.table ? `<table><thead><tr>${s.table[0].map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>` +
+          s.table.slice(1).map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("") + `</tbody></table>` : "") +
+        `<p class="src">Drawn from: ${(s.src || []).join(" · ")}</p>`;
+      out.appendChild(block);
+      if (i === secs.length - 1) {
+        const foot = document.createElement("p");
+        foot.className = "wire-note";
+        foot.textContent = "Draft assembled. In the working product this goes to the nominated officer for review and signature, in the format the authority requires.";
+        out.appendChild(foot);
+      }
+    }, 220 * i));
+  }
+
+  document.getElementById("assemble").addEventListener("click", assemble);
+  document.getElementById("reset-draft").addEventListener("click", clearDraft);
+  renderTargets();
+  renderHead();
+})();
+</script>
+</body>
+</html>
