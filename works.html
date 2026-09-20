@@ -37,20 +37,22 @@
   <div class="two-pane">
     <div class="stack">
       <section class="panel">
-        <h2>Where the figure comes from</h2>
-        <div class="body">
-          <p id="method"></p>
-          <table class="reg" id="rollup"></table>
-        </div>
-      </section>
-
-      <section class="panel">
         <h2>Items</h2>
         <ul class="alert-list" id="items"></ul>
       </section>
     </div>
 
-    <section class="detail" id="detail"></section>
+    <div class="stack">
+      <section class="panel">
+        <h2>Where the figure comes from</h2>
+        <div class="body">
+          <p id="method"></p>
+          <div class="scroll-x"><table class="reg" id="rollup"></table></div>
+        </div>
+      </section>
+
+      <section class="detail" id="detail"></section>
+    </div>
   </div>
 
   <a class="backlink" href="lake.html">Back to the lake view</a>
@@ -94,7 +96,7 @@
     `The overall figure is the weighted sum below. Weights follow ${works.weight_basis.toLowerCase()}.`;
 
   document.getElementById("rollup").innerHTML =
-    `<thead><tr><th>Item</th><th>Weight</th><th>Item %</th><th>Contributes</th></tr></thead><tbody>` +
+    `<thead><tr><th>Item</th><th>Weight</th><th>Item %</th><th>Contributes (% points)</th></tr></thead><tbody>` +
     works.items.map(i => {
       const c = pctOf(i.id) * i.weight_pct / 100;
       return `<tr><td>${i.name}</td><td>${i.weight_pct}%</td><td>${pctOf(i.id)}%</td><td>${c.toFixed(1)}</td></tr>`;
