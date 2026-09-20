@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Field capture — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="wordmark">Asset<span>IQ</span></span>
+    <span class="authority" id="authority"></span>
+  </div>
+</header>
+
+<div class="demo-banner">
+  <div class="wrap">Interactive wireframe. Fill it in as a field assistant would. Nothing is sent anywhere.</div>
+</div>
+
+<main class="wrap">
+  <section class="lake-head">
+    <div class="row">
+      <div>
+        <h1>Field capture</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+    </div>
+  </section>
+
+  <div class="field-cols">
+    <!-- the phone -->
+    <div>
+      <div class="phone">
+        <div class="phone-bar">
+          <span id="clock">—</span>
+          <span id="net-state">Online</span>
+        </div>
+        <div class="phone-screen" id="screen"></div>
+      </div>
+      <div class="actions" style="margin-top:1rem">
+        <button type="button" class="secondary" id="toggle-net">Go offline</button>
+        <button type="button" class="secondary" id="restart">Start again</button>
+      </div>
+      <p class="wire-note">Switch the connection off mid-round. Entries queue on the device and go up when it returns — the way a bank walk actually happens.</p>
+    </div>
+
+    <!-- what the office sees -->
+    <div class="stack">
+      <section class="panel">
+        <h2>Why it is built this way</h2>
+        <div class="body">
+          <ul class="plain">
+            <li><strong>Yes or no, not a percentage.</strong> A site engineer answers what they can see. Judgement about progress happens later, from the answers.</li>
+            <li><strong>A photograph for every yes.</strong> Anything reported as found must be shown, so a figure can be traced back to the picture that produced it.</li>
+            <li><strong>Location, time and hash at capture.</strong> Attached on the device, not typed in afterwards.</li>
+            <li><strong>Under two minutes.</strong> If a round takes longer than the walk itself, field staff stop doing it, and the record dies with them.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>This round</h2>
+        <ul class="events" id="queue"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Adoption over the last 30 days</h2>
+        <div class="body" id="adoption"></div>
+      </section>
+    </div>
+  </div>
+
+  <a class="backlink" href="lake.html">Back to the lake view</a>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Everything the officer screens show begins here. If the field round is not quick and plain, nothing upstream is trustworthy.</p>
+    <p id="dataline"></p>
+  </div>
+</footer>
+
+<script src="assets/js/aiq-data.js"></script>
+<script>
+(async () => {
+  const data = await aiqLoad().catch(err => { console.error(err); return null; });
+  if (!data) {
+    document.getElementById("sub").textContent = "The demonstration data did not load. Serve this folder over HTTP.";
+    return;
+  }
+
+  const user = data.users.find(u => u.id === "U-FA1");
+  const summary = data.field_capture_summary;
+  const QUESTIONS = [
+    { k: "new_construction_seen", q: "Any new construction or fill inside the boundary?", photoOn: "yes", raises: "Boundary" },
+    { k: "debris_seen", q: "Any debris or waste dumped on the bank?", photoOn: "yes", raises: "Pollution load" },
+    { k: "inlet_flow_normal", q: "Is the flow at Inlet 2 normal?", photoOn: "no", raises: "Pollution load" },
+    { k: "bund_wet_patch", q: "Any wet patch or seepage at the bund?", photoOn: "yes", raises: "Structures" }
+  ];
+  const POINTS = { new_construction_seen: [55, 326], debris_seen: [-420, 60], inlet_flow_normal: [60, 310], bund_wet_patch: [-80, -292] };
+
+  let online = true, step = 0, answers = {}, entries = [], startedAt = null;
+
+  document.getElementById("authority").textContent = data.authority.name;
+  document.getElementById("sub").textContent =
+    `${user.name}, ${user.role} · ${data.asset.display_name} · weekly bank walk`;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  const pad = n => String(n).padStart(2, "0");
+  setInterval(() => {
+    const d = new Date();
+    document.getElementById("clock").textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }, 1000);
+
+  async function hashOf(text) {
+    try {
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+      return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+    } catch (e) {
+      let h = 0;
+      for (const ch of text) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      return (h.toString(16) + "b7c41a09e2d8").padEnd(64, "0").slice(0, 64);
+    }
+  }
+
+  function renderPhone() {
+    const el = document.getElementById("screen");
+
+    if (step >= QUESTIONS.length) {
+      const secs = startedAt ? Math.max(1, Math.round((Date.now() - startedAt) / 1000)) : 0;
+      el.innerHTML = `
+        <div class="p-head">Round complete</div>
+        <p class="p-done">${entries.length} entries recorded in ${secs < 60 ? secs + " second" + (secs === 1 ? "" : "s") : Math.round(secs / 60) + " minutes"}.</p>
+        <p class="p-note">${entries.filter(e => e.queued).length
+          ? `${entries.filter(e => e.queued).length} waiting to go up. They will sync on their own when the signal returns.`
+          : "All entries are up."}</p>
+        <button type="button" class="p-btn ghost" id="again">Walk again</button>`;
+      document.getElementById("again").addEventListener("click", restart);
+      return;
+    }
+
+    const cur = QUESTIONS[step];
+    const needsPhoto = answers[cur.k] === cur.photoOn;
+    el.innerHTML = `
+      <div class="p-head">Weekly bank walk <span>${step + 1} of ${QUESTIONS.length}</span></div>
+      <p class="p-q">${cur.q}</p>
+      <div class="p-yn">
+        <button type="button" class="p-btn ${answers[cur.k] === "yes" ? "on" : ""}" data-a="yes">Yes</button>
+        <button type="button" class="p-btn ${answers[cur.k] === "no" ? "on" : ""}" data-a="no">No</button>
+      </div>
+      ${answers[cur.k] ? (needsPhoto ? `
+        <div class="p-photo" id="photo">
+          ${answers.photo ? `<span class="p-shot">Photograph attached</span>` : `<button type="button" class="p-btn ghost" id="shoot">Take the photograph</button>
+          <p class="p-note">Required. This answer will be relied on later.</p>`}
+        </div>` : `<p class="p-note">No photograph needed for this answer.</p>`) : ""}
+      ${answers[cur.k] && (!needsPhoto || answers.photo) ? `
+        <div class="p-meta">
+          <div>Location <span>grid ${POINTS[cur.k][0]}, ${POINTS[cur.k][1]}</span></div>
+          <div>Time <span>attached on the device</span></div>
+          <div>Integrity <span>hash at capture</span></div>
+        </div>
+        <button type="button" class="p-btn primary" id="save">Save entry</button>` : ""}`;
+
+    el.querySelectorAll("[data-a]").forEach(b => b.addEventListener("click", () => {
+      if (!startedAt) startedAt = Date.now();
+      answers[cur.k] = b.dataset.a; delete answers.photo; renderPhone();
+    }));
+    const shoot = document.getElementById("shoot");
+    if (shoot) shoot.addEventListener("click", () => { answers.photo = true; renderPhone(); });
+    const save = document.getElementById("save");
+    if (save) save.addEventListener("click", () => saveEntry(cur));
+  }
+
+  async function saveEntry(cur) {
+    const at = new Date();
+    const payload = `${cur.k}|${answers[cur.k]}|${POINTS[cur.k].join(",")}|${at.toISOString()}`;
+    const entry = {
+      q: cur.q, a: answers[cur.k], raises: cur.raises,
+      photo: Boolean(answers.photo), at, loc: POINTS[cur.k],
+      hash: await hashOf(payload), queued: !online
+    };
+    entries.push(entry);
+    delete answers.photo;
+    step += 1;
+    renderPhone(); renderQueue();
+  }
+
+  function renderQueue() {
+    const el = document.getElementById("queue");
+    if (!entries.length) {
+      el.innerHTML = `<li><p class="meta">Nothing captured yet. Answer the questions on the device and the entries appear here as the office would see them.</p></li>`;
+      return;
+    }
+    el.innerHTML = entries.map(e => `
+      <li>
+        <p class="title">${e.q} <span class="ans ${e.a}">${e.a}</span></p>
+        <p class="meta">${AIQ.dateTime(e.at.toISOString())} · grid ${e.loc[0]}, ${e.loc[1]} · ${user.name}
+          ${e.photo ? " · photograph attached" : ""}</p>
+        <p class="meta"><span class="hash">${e.hash.slice(0, 16)}…</span>
+          ${e.queued ? `<span class="q-flag">waiting on the device</span>` : `<span class="up-flag">up</span>`}
+          ${(e.a === "yes" && e.raises !== "—") || (e.q.includes("normal") && e.a === "no")
+            ? ` · would raise a ${e.raises.toLowerCase()} check` : ""}</p>
+      </li>`).join("");
+  }
+
+  function renderAdoption() {
+    const pct = summary.completion_pct;
+    document.getElementById("adoption").innerHTML = `
+      <p><strong>${summary.completed} of ${summary.scheduled}</strong> scheduled captures completed in the ${summary.window} — ${pct}%.</p>
+      <ul class="bars"><li><span class="track"><span class="fill" style="width:${pct}%"></span></span></li></ul>
+      <p class="wire-note">Adoption is measured weekly and reported, not assumed. If field staff stop using the tool, every figure upstream stops being true.</p>`;
+  }
+
+  function setNet(v) {
+    online = v;
+    document.getElementById("net-state").textContent = online ? "Online" : "No signal";
+    document.getElementById("net-state").className = online ? "" : "off";
+    document.getElementById("toggle-net").textContent = online ? "Go offline" : "Come back online";
+    if (online && entries.some(e => e.queued)) {
+      setTimeout(() => { entries.forEach(e => e.queued = false); renderQueue(); renderPhone(); }, 900);
+    }
+    renderQueue();
+  }
+
+  function restart() { step = 0; answers = {}; entries = []; startedAt = null; renderPhone(); renderQueue(); }
+
+  document.getElementById("toggle-net").addEventListener("click", () => setNet(!online));
+  document.getElementById("restart").addEventListener("click", restart);
+  renderPhone(); renderQueue(); renderAdoption();
+})();
+</script>
+</body>
+</html>
