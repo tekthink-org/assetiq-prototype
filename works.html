@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Restoration progress — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <span class="wordmark">Asset<span>IQ</span></span>
+    <span class="authority" id="authority"></span>
+  </div>
+</header>
+
+<div class="demo-banner">
+  <div class="wrap">Interactive wireframe. Every percentage here can be opened until you reach a photograph.</div>
+</div>
+
+<main class="wrap">
+  <section class="lake-head">
+    <div class="row">
+      <div>
+        <h1 id="head">Restoration progress</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </section>
+
+  <div class="two-pane">
+    <div class="stack">
+      <section class="panel">
+        <h2>Where the figure comes from</h2>
+        <div class="body">
+          <p id="method"></p>
+          <table class="reg" id="rollup"></table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Items</h2>
+        <ul class="alert-list" id="items"></ul>
+      </section>
+    </div>
+
+    <section class="detail" id="detail"></section>
+  </div>
+
+  <a class="backlink" href="lake.html">Back to the lake view</a>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Progress reported as a percentage is an opinion. Progress computed from measured quantity against sanctioned quantity, recorded by one officer and check-measured by another, is a figure that can be defended.</p>
+    <p id="dataline"></p>
+  </div>
+</footer>
+
+<script src="assets/js/aiq-data.js"></script>
+<script>
+(async () => {
+  const data = await aiqLoad().catch(err => { console.error(err); return null; });
+  if (!data) {
+    document.getElementById("sub").textContent = "The demonstration data did not load. Serve this folder over HTTP.";
+    return;
+  }
+  const works = data.restoration_works, prog = works.precomputed_progress;
+  const item = id => works.items.find(i => i.id === id) || {};
+  const pctOf = id => (prog.items.find(p => p.item === id) || {}).pct || 0;
+  const doneOf = id => (prog.items.find(p => p.item === id) || {}).executed_qty || 0;
+  const unit = u => (u || "").replace("m3", "m³").replace("m2", "m²");
+  const num = n => Number(n).toLocaleString("en-IN");
+  const role = id => (data.users.find(u => u.id === id) || {}).name || id;
+  const entriesFor = id => works.measurements.filter(m => m.item === id);
+  const mediaFor = ids => data.media_ledger.filter(m => ids.some(i => (m.linked_to || []).includes(i)));
+  const asOf = data.officer_view.as_of.slice(0, 10);
+
+  document.getElementById("authority").textContent = data.authority.name;
+  document.getElementById("sub").textContent =
+    `${works.name} · work order ${works.id} issued ${AIQ.date(works.issued_on)} · ${works.measurements.length} measurement entries`;
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot amber"></span> <span class="reason">${prog.overall_pct}% overall, weighted by sanctioned value</span>`;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  document.getElementById("method").innerHTML =
+    `Each item is measured in the field against a sanctioned quantity. The item percentage is measured divided by sanctioned. ` +
+    `The overall figure is the weighted sum below. Weights follow ${works.weight_basis.toLowerCase()}.`;
+
+  document.getElementById("rollup").innerHTML =
+    `<thead><tr><th>Item</th><th>Weight</th><th>Item %</th><th>Contributes</th></tr></thead><tbody>` +
+    works.items.map(i => {
+      const c = pctOf(i.id) * i.weight_pct / 100;
+      return `<tr><td>${i.name}</td><td>${i.weight_pct}%</td><td>${pctOf(i.id)}%</td><td>${c.toFixed(1)}</td></tr>`;
+    }).join("") +
+    `<tr class="accepted"><td>Overall</td><td>100%</td><td></td><td>${prog.overall_pct}</td></tr></tbody>`;
+
+  let current = works.items[0].id;
+
+  function renderItems() {
+    document.getElementById("items").innerHTML = works.items.map(i => {
+      const late = i.planned_by < asOf && pctOf(i.id) < 100;
+      return `<li><button type="button" data-id="${i.id}" aria-current="${i.id === current}">
+        <span class="t">${i.name}</span>
+        <span class="m">${pctOf(i.id)}% · ${num(doneOf(i.id))} of ${num(i.sanctioned_qty)} ${unit(i.unit)}
+          · <span class="${late ? "late" : ""}">by ${AIQ.date(i.planned_by)}</span></span>
+        <span class="track"><span class="fill" style="width:${pctOf(i.id)}%"></span></span>
+      </button></li>`;
+    }).join("");
+    document.querySelectorAll("#items button").forEach(b =>
+      b.addEventListener("click", () => select(b.dataset.id)));
+  }
+
+  function select(id) {
+    current = id;
+    const i = item(id), entries = entriesFor(id);
+    let running = 0;
+    const rows = entries.map(m => {
+      running += m.qty;
+      return `<tr>
+        <td>${AIQ.date(m.date)}</td>
+        <td>${num(m.qty)} ${unit(i.unit)}</td>
+        <td>${num(running)}</td>
+        <td>${((running / i.sanctioned_qty) * 100).toFixed(1)}%</td>
+        <td>${role(m.recorded_by)}</td>
+        <td>${role(m.check_measured_by)}<br><span class="wire-note">${AIQ.date(m.check_measured_on)}</span></td>
+        <td>${m.evidence.map(e => `<span class="hash">${(data.media_ledger.find(x => x.id === e) || { sha256: "" }).sha256.slice(0, 8)}…</span>`).join(" ")}</td>
+      </tr>`;
+    }).join("");
+
+    const media = mediaFor([id].concat(entries.map(e => e.id)));
+    const late = i.planned_by < asOf && pctOf(id) < 100;
+
+    document.getElementById("detail").innerHTML = `
+      <h2>${i.name}</h2>
+      <p class="tagline">
+        <span class="badge ${pctOf(id) === 100 ? "closed" : late ? "late" : "open"}">${
+          pctOf(id) === 100 ? "Complete" : late ? "Behind programme" : "In progress"}</span>
+        &nbsp;${num(doneOf(id))} of ${num(i.sanctioned_qty)} ${unit(i.unit)} · weight ${i.weight_pct}% · planned by ${AIQ.date(i.planned_by)}
+      </p>
+      <div class="calc">
+        <span>${num(doneOf(id))}</span> ÷ <span>${num(i.sanctioned_qty)}</span> ${unit(i.unit)}
+        = <strong>${pctOf(id)}%</strong>
+      </div>
+      <h3>Measurement book</h3>
+      ${entries.length ? `<div class="scroll-x"><table class="reg mb">
+        <thead><tr><th>Date</th><th>Quantity</th><th>Running</th><th>Progress</th><th>Recorded</th><th>Check-measured</th><th>Evidence</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`
+        : `<p class="wire-note">No quantity has been measured for this item yet, so it stands at 0%. Nothing is assumed in advance of measurement.</p>`}
+      ${entries.length ? `<p class="wire-note">Every entry is recorded by one officer and check-measured by another, on a later date. The running column is what produces the percentage above.</p>` : ""}
+      <h3>Evidence</h3>
+      ${media.length ? `<div class="evidence">` + media.map(m => `
+        <figure>
+          <div class="frame">${m.role_note || m.kind.replace(/_/g, " ")}</div>
+          <figcaption>
+            <span class="who">${role(m.captured_by)}</span> · ${AIQ.dateTime(m.captured_at)}<br>
+            grid ${m.location[0]}, ${m.location[1]}<br>
+            <span class="hash">${m.sha256.slice(0, 16)}…</span>
+          </figcaption>
+        </figure>`).join("") + `</div>`
+        : `<p class="wire-note">No photographs, because nothing has been measured here yet.</p>`}
+      <h3>If this figure is challenged</h3>
+      <p>${pctOf(id) === 0
+        ? "Nothing has been claimed for this item, so there is nothing to defend."
+        : `The ${pctOf(id)}% rests on ${entries.length} measurement${entries.length > 1 ? "s" : ""} totalling ${num(doneOf(id))} ${unit(i.unit)}, each with a date, a photograph, the officer who measured it and the officer who checked it. An auditor can take any row above and go to the picture behind it.`}</p>`;
+
+    document.querySelectorAll("#items button").forEach(b =>
+      b.setAttribute("aria-current", b.dataset.id === id));
+  }
+
+  renderItems();
+  select(current);
+})();
+</script>
+</body>
+</html>
