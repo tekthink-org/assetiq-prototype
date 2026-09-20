@@ -50,6 +50,38 @@ const AIQ = {
     return z ? z.name : id;
   },
 
+
+  /* --- demo session state -------------------------------------------------
+     Decisions taken in the wireframe live in sessionStorage only: they are
+     visible across the screens in this browser tab and vanish on refresh.
+     Nothing is sent anywhere and nothing is stored on a server. */
+  actions: {
+    KEY: "aiq-demo-actions",
+    all() {
+      try { return JSON.parse(sessionStorage.getItem(AIQ.actions.KEY) || "{}"); }
+      catch (e) { return {}; }
+    },
+    get(id) { return AIQ.actions.all()[id] || null; },
+    record(id, entry) {
+      const a = AIQ.actions.all();
+      a[id] = Object.assign({ at: new Date().toISOString() }, entry);
+      try { sessionStorage.setItem(AIQ.actions.KEY, JSON.stringify(a)); } catch (e) {}
+      return a[id];
+    },
+    clear() { try { sessionStorage.removeItem(AIQ.actions.KEY); } catch (e) {} },
+    count() { return Object.keys(AIQ.actions.all()).length; }
+  },
+
+  /* Applies any demo decision to a copy of the event. */
+  withAction(e) {
+    const a = AIQ.actions.get(e.id);
+    if (!a) return e;
+    return Object.assign({}, e, {
+      status: a.status, demo_action: a,
+      closed_on: a.status === "closed" ? a.at.slice(0, 10) : e.closed_on
+    });
+  },
+
   /* Daily summary of a sensor parameter: {day, v} per calendar day. */
   daily(data, device, key, how = "min") {
     const by = new Map();
