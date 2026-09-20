@@ -63,8 +63,30 @@ geometry = {
         {"id": "IN-3", "type": "inlet", "name": "Inlet 3 — field channel (east)", "point": [455, 40]},
     ],
     "change_polygons": [{"id": "CHG-001", "polygon": fill_new}],
+    "record_boundaries_note": ("Illustrative only. These are not survey products: they stand in for the "
+                               "differing boundaries that departmental records would show for the same lake."),
+    "record_boundaries": {},
 }
 A_FTL, A_BUF, A_WS = area(ftl), area(buffer_outer) - area(ftl), area(water_spread_now)
+
+def shift_north(poly, dy, cutoff=170):
+    """Push the northern part of a boundary out or in, to stand in for a records dispute."""
+    out = []
+    for x, y in poly:
+        out.append([x, round(y + dy, 1)] if y > cutoff else [x, y])
+    out[-1] = out[0]
+    return out
+
+def to_area(poly, target_m2):
+    import math as _m
+    f = _m.sqrt(target_m2 / area(poly))
+    return scale(poly, f)
+
+geometry["record_boundaries"] = {
+    "DR-REV": to_area(shift_north(ftl, 14), 44.1 * 10000),
+    "DR-IRR": to_area(shift_north(ftl, -16), 41.6 * 10000),
+    "DR-NOT": to_area(ftl, 42.0 * 10000),
+}
 A_FILL = area(fill_new)
 
 # ---------------------------------------------------------------- reference
