@@ -33,7 +33,7 @@
       </div>
       <figure class="plan">
         <svg id="plan"></svg>
-        <figcaption id="plan-caption">Schematic plan. Catchment, buffer zone, full tank level and current water spread.</figcaption>
+        <figcaption id="plan-caption">Map sheet AIQ-L01-01. Geometry is illustrative, drawn on a synthetic local grid.</figcaption>
       </figure>
     </div>
 
@@ -55,6 +55,7 @@
 </footer>
 
 <script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
 <script>
 const SCREENS = [
   { n: 1, file: "lake.html", name: "Officer lake view", what: "Current status, what changed, what is overdue, what needs a decision", built: true },
@@ -76,7 +77,7 @@ const SCREENS = [
       `Demonstration site: <strong>${a.display_name}</strong> — ${a.ftl_area_ha} ha at full tank level, ` +
       `${a.zone}. ${AIQ.custody(a.custody_state)} since ${AIQ.date(data.custody_history.at(-1).date)}.`;
 
-    AIQ.drawPlan(document.getElementById("plan"), data);
+    AIQMap.draw(document.getElementById("plan"), data, { title: "Condition at a glance", mapRef: "AIQ-L01-01", asAt: AIQ.date(data.officer_view.as_of), acceptedOn: AIQ.date(data.spatial_baseline.accepted_on), waterDate: "Sept 2026", changeDate: AIQ.date(data.observation_passes[1].date) });
 
     const parts = [
       ["Overall", `<span class="dot ${ov.overall_status}"></span> ${ov.status_reason}`],

@@ -85,6 +85,7 @@
 </footer>
 
 <script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
 <script>
 (async () => {
   const data = await aiqLoad().catch(err => { console.error(err); return null; });
@@ -110,21 +111,17 @@
     const svg = document.getElementById("plan");
     svg.innerHTML = "";
     if (!hasBoundaries) {
-      AIQ.drawPlan(svg, data, { sensors: false, changes: false, labels: false });
+      AIQMap.draw(svg, data, { title: "Accepted boundary", mapRef: "AIQ-L01-02", asAt: AIQ.date(data.officer_view.as_of), acceptedOn: AIQ.date(sb.accepted_on), waterDate: "Sept 2026", sensors: false, changes: false });
       document.getElementById("plan-caption").textContent =
         `Accepted boundary, ${a.ftl_area_ha} ha. The departmental boundary layers are not in this copy of the demonstration data.`;
       return;
     }
-    const overlays = Object.entries(g.record_boundaries)
-      .filter(([id]) => shown[id])
-      .map(([id]) => ({ points: g.record_boundaries[id], cls: "rec rec-" + id.toLowerCase().replace("dr-", "") }));
-    AIQ.drawPlan(svg, data, { overlays, sensors: false, changes: false, labels: false });
+    const overlays = Object.keys(g.record_boundaries).filter(id => shown[id]);
+    AIQMap.draw(svg, data, { title: "Boundary reconciliation", mapRef: "AIQ-L01-02", asAt: AIQ.date(data.officer_view.as_of),
+      acceptedOn: AIQ.date(sb.accepted_on), waterDate: "Sept 2026", overlays, sensors: false, changes: false });
     document.getElementById("plan-caption").innerHTML =
-      `Accepted boundary in dark outline, ${a.ftl_area_ha} ha. ` +
-      Object.keys(g.record_boundaries).filter(id => shown[id])
-        .map(id => `<span class="key key-${id.toLowerCase().replace("dr-", "")}">${rec(id).department}, ${rec(id).ftl_area_ha} ha</span>`)
-        .join(" ") +
-      ` <span class="wire-note">${g.record_boundaries_note}</span>`;
+      `Accepted boundary (FTL) as a solid line, ${a.ftl_area_ha} ha. Departmental records as dashed lines; toggle them above. ` +
+      `<span class="wire-note">${g.record_boundaries_note}</span>`;
   }
 
   function renderToggles() {

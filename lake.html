@@ -114,6 +114,7 @@
 </footer>
 
 <script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
 <script>
 (async () => {
   try {
@@ -130,11 +131,11 @@
       `<span class="dot ${ov.overall_status}"></span> <span class="reason">${ov.status_reason}</span>`;
 
     /* plan */
-    AIQ.drawPlan(document.getElementById("plan"), data);
+    AIQMap.draw(document.getElementById("plan"), data, { title: "Condition at " + AIQ.date(ov.as_of), mapRef: "AIQ-L01-01", asAt: AIQ.date(ov.as_of), acceptedOn: AIQ.date(data.spatial_baseline.accepted_on), waterDate: "Sept 2026", changeDate: AIQ.date(data.observation_passes[1].date) });
     const fill = byId["EV-01"];
     document.getElementById("plan-caption").textContent =
       `Current water spread ${data.satellite_series.at(-1).water_spread_ha} ha. ` +
-      `Red outline on the north bank: ${fill.title.toLowerCase()}, found by the drone pass of ${AIQ.date(data.observation_passes[1].date)}.`;
+      `C-01 on the north bank: ${fill.title.toLowerCase()}, found by the drone pass of ${AIQ.date(data.observation_passes[1].date)}. Monitoring station SN-WQ1 sits beside Inlet 2, where the August sewage inflow entered.`;
 
     /* condition */
     document.getElementById("indicators").innerHTML = ov.indicators.map(i =>
