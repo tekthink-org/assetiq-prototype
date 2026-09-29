@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Amenity suitability — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body data-screen="amenity">
+
+<div id="page" class="page">
+  <div class="phead">
+    <div class="row">
+      <div>
+        <h1>Amenity suitability</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </div>
+
+  <div class="guard" id="scope"></div>
+
+  <section class="panel" style="margin-bottom:1.1rem">
+    <h2>The test <span class="n">— every parcel is put through the same six checks</span></h2>
+    <div class="scroll-x"><table class="reg" id="matrix"></table></div>
+    <div class="body"><p class="wire-note">A parcel that fails either of the first two is not a candidate
+      at all, whatever else is true of it. Failures are left on the table rather than filtered out of
+      sight, so the exclusion is on the record.</p></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Candidates against the boundary</h2>
+      <div class="body">
+        <svg id="plan"></svg>
+        <p class="caption" id="cap"></p>
+      </div>
+    </section>
+
+    <div class="stack">
+      <section class="panel" id="detail"></section>
+
+      <section class="panel">
+        <h2>Why the checks are in this order</h2>
+        <div class="body"><ul class="plain" id="crit"></ul></div>
+      </section>
+
+      <section class="panel accent">
+        <h2>The tension in this screen</h2>
+        <div class="body">
+          <p id="caution"></p>
+          <p class="wire-note">If HYDRA would rather this screen did not exist in a protection platform at
+             all, that is a reasonable position and we would drop it. It is included because the question
+             was asked, and because a refusal to answer it tends to produce a worse answer somewhere else.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="site">
+    <p id="dataline"></p>
+  </footer>
+</div>
+
+<script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
+<script>
+AIQShell.boot(async (data) => {
+  const B = data.beautification;
+  let current = (location.hash || "").replace("#", "") || B.candidates[0].id;
+  if (!B.candidates.some(c => c.id === current)) current = B.candidates[0].id;
+
+  const pass = B.candidates.filter(c => c.verdict === "Meets every check");
+  const summary = B.summary || {};
+  document.getElementById("sub").textContent =
+    `${B.candidates.length} parcels assessed · ${pass.length} meets every check · ` +
+    `${Object.entries(summary).filter(([k, v]) => v && k !== "Meets every check")
+       .map(([k, v]) => `${v} ${k.toLowerCase()}`).join(", ")}`;
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot ${pass.length ? "green" : "amber"}"></span> <span class="reason">${
+      pass.length} parcel${pass.length === 1 ? "" : "s"} clear on every check</span>`;
+  document.getElementById("scope").innerHTML =
+    `<strong>Scope.</strong> ${B.scope} <br><strong>Rule applied:</strong> ${B.rule} ` +
+    `<br><strong>Standing:</strong> ${B.decision}`;
+  document.getElementById("caution").textContent = B.caution;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  document.getElementById("crit").innerHTML = B.criteria.map((c, i) =>
+    `<li><strong>${i + 1}. ${c.label}.</strong> ${c.why}.</li>`).join("");
+
+  function renderMatrix() {
+    document.getElementById("matrix").innerHTML =
+      `<thead><tr><th style="white-space:nowrap">Parcel</th>${B.criteria.map(c =>
+        `<th title="${c.label} — ${c.why}" style="font-size:var(--step--2);white-space:nowrap">${c.short || c.label}</th>`).join("")}<th style="white-space:nowrap">Verdict</th></tr></thead><tbody>` +
+      B.candidates.map(c => {
+        const ok = c.verdict === "Meets every check";
+        return `<tr data-id="${c.id}" style="cursor:pointer" class="${c.id === current ? "accepted" : ""}">
+          <td style="white-space:nowrap"><strong>Survey ${c.survey_no}</strong>
+            <span class="wire-note" style="margin:0"> · ${c.extent_ac} ac · ${c.location.replace(" of the lake, beyond the buffer", "").replace("The tank bed itself", "tank bed")}</span></td>
+          ${B.criteria.map(k => `<td style="text-align:center">${c.checks[k.k]
+            ? `<span class="check">✓</span>` : `<span class="cross">✕</span>`}</td>`).join("")}
+          <td>${ok ? `<span class="badge closed">${c.verdict}</span>`
+            : (c.verdict === "Not a candidate" || c.verdict.indexOf("Blocked until") === 0)
+              ? `<span class="badge late">${c.verdict}</span>`
+            : `<span class="badge open">${c.verdict}</span>`}</td></tr>`;
+      }).join("") + `</tbody>`;
+    document.querySelectorAll("#matrix tbody tr").forEach(r => r.addEventListener("click", () => {
+      current = r.dataset.id; location.replace("#" + current); renderAll();
+    }));
+  }
+
+  function renderDetail() {
+    const c = B.candidates.find(x => x.id === current);
+    const p = AIQ.parcel(data, c.parcel_id);
+    const failed = B.criteria.filter(k => !c.checks[k.k]);
+    const cases = (data.encroachment_cases || []).filter(x => x.parcel_id === c.parcel_id);
+    document.getElementById("detail").innerHTML = `
+      <h2>${c.id} · survey ${c.survey_no}</h2>
+      <div class="body">
+        <dl class="kv" style="margin-bottom:0.8rem">
+          <dt>Where</dt><dd>${c.location}</dd>
+          <dt>Extent</dt><dd>${c.extent_ac} ac</dd>
+          <dt>Classification</dt><dd>${p ? p.classification : "—"}</dd>
+          <dt>Held by</dt><dd>${p ? p.holder : "—"}</dd>
+          <dt>Verdict</dt><dd>${c.verdict}</dd>
+        </dl>
+        ${failed.length
+          ? `<div class="${(c.verdict === "Not a candidate" || c.verdict.indexOf("Blocked until") === 0) ? "guard" : "consequence"}">
+              <strong>Fails ${failed.length} of the ${B.criteria.length} checks</strong>
+              <ul class="bul" style="margin:0.4rem 0 0">${failed.map(f =>
+                `<li>${f.label} — ${f.why}</li>`).join("")}</ul></div>`
+          : `<div class="taken"><strong>Clear on every check</strong>
+              <p>Outside the FTL, outside the buffer, government-held, no open case, no conflict with
+                 sanctioned works, and reachable without routing footfall through the protection zone.</p></div>`}
+        <p>${c.note}</p>
+        ${cases.length ? `<p class="wire-note">This parcel carries
+          <a href="encroachment.html#${cases[0].id}">case ${cases[0].id}</a>. Enforcement is settled before
+          amenity is considered, not alongside it.</p>` : ""}
+        <p class="wire-note"><a href="survey.html#${c.parcel_id}">Open survey ${c.survey_no}</a> for the
+          full parcel record.</p>
+      </div>`;
+  }
+
+  function draw() {
+    const c = B.candidates.find(x => x.id === current);
+    AIQMap.draw(document.getElementById("plan"), data, {
+      title: "Amenity candidates", mapRef: "AIQ-L01-05",
+      asAt: AIQ.date(data.officer_view.as_of), acceptedOn: AIQ.date(data.spatial_baseline.accepted_on),
+      waterDate: "Sept 2026", parcels: true, amenity: true, highlightParcel: c.parcel_id,
+      sensors: false, changes: false,
+    });
+    document.getElementById("cap").innerHTML =
+      `Candidates outlined; a broken red outline is a parcel ruled out. The FTL line and the buffer band are
+       drawn so the exclusion zone is visible on the same sheet. <strong>${c.id}</strong> is highlighted.`;
+  }
+
+  function renderAll() { renderMatrix(); renderDetail(); draw(); }
+  renderAll();
+  window.addEventListener("hashchange", () => {
+    const h = location.hash.replace("#", "");
+    if (h && B.candidates.some(c => c.id === h) && h !== current) { current = h; renderAll(); }
+  });
+});
+</script>
+</body>
+</html>

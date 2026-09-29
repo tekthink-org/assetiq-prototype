@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Public view — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body data-screen="public">
+
+<div id="page" class="page">
+  <div class="phead">
+    <div class="row">
+      <div>
+        <h1>Public view</h1>
+        <p class="sub">What a citizen would see, and what a citizen would not. The page below is the
+          published side; the two panels after it set out what is withheld and why.</p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </div>
+
+  <div class="note-box" id="decision"></div>
+
+  <section class="panel" style="margin-bottom:1.1rem;border-top:3px solid var(--water)">
+    <h2>As published <span class="n">— this is the citizen-facing page</span></h2>
+    <div class="body">
+      <div class="cols">
+        <div>
+          <h3 id="pubname"></h3>
+          <p id="pubintro"></p>
+          <dl class="stat-row" style="margin-bottom:0.9rem" id="pubstats"></dl>
+          <h3>Restoration under way</h3>
+          <ul class="bars" id="pubbars"></ul>
+          <div class="total"><span>Overall</span><span class="big" id="puboverall"></span></div>
+          <h3 style="margin-top:1rem">Report a problem</h3>
+          <p id="pubreport"></p>
+          <div class="actions"><button type="button" disabled>Report dumping, encroachment or a blocked inlet</button></div>
+          <p class="wire-note">Button is shown to make the flow legible. This wireframe records nothing.</p>
+        </div>
+        <div>
+          <svg id="plan"></svg>
+          <p class="caption" id="cap"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Published, and why</h2>
+      <div class="scroll-x"><table class="reg" id="pub"></table></div>
+    </section>
+    <section class="panel accent">
+      <h2>Withheld, and why</h2>
+      <div class="scroll-x"><table class="reg" id="hid"></table></div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:1.1rem">
+    <h2>The judgement behind this screen</h2>
+    <div class="body">
+      <p>Publishing the location of an encroachment names a private party in a matter that has not been
+         decided. Publishing an unverified sensor reading turns a suspicion into a headline. Publishing a
+         water quality number invites a comparison with a standard that the number may not have been
+         measured against.</p>
+      <p>The default taken here is: <strong>aggregate rather than individual, confirmed rather than raised,
+         band rather than raw figure.</strong> A citizen can see that the lake is being looked after and can
+         report what they notice. They cannot see who is being proceeded against.</p>
+      <div class="guard"><strong>Not our decision.</strong> What a public page shows is the authority's
+         call, not the platform's. This screen exists so the conversation starts from something concrete
+         rather than from a blank page.</div>
+    </div>
+  </section>
+
+  <footer class="site">
+    <p id="dataline"></p>
+  </footer>
+</div>
+
+<script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
+<script>
+AIQShell.boot(async (data) => {
+  const PV = data.public_view, works = data.restoration_works, pr = works.precomputed_progress;
+  const enc = data.encroachment_summary, cr = PV.citizen_reports;
+
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot green"></span> <span class="reason">${PV.published.length} fields published, ${PV.withheld.length} withheld</span>`;
+  document.getElementById("decision").innerHTML = `<p>${PV.decision_note}</p>`;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  /* ---- the published page ---- */
+  const name = data.asset.display_name.replace(" (fictitious)", "");
+  document.getElementById("pubname").textContent = name;
+  document.getElementById("pubintro").textContent =
+    `${data.asset.ftl_area_ha} hectares at full tank level, in ${data.asset.zone}. The lake is under ` +
+    `restoration. Its boundary was surveyed and accepted in ${AIQ.date(data.spatial_baseline.accepted_on).replace(/^\d+ /, "")}.`;
+
+  document.getElementById("pubstats").innerHTML = [
+    ["Water spread", data.satellite_series.at(-1).water_spread_ha + " ha", "this month"],
+    ["Water quality", PV.band, "band"],
+    ["Restoration", pr.overall_pct + "%", "complete"],
+    ["Encroachment", `${enc.open} open`, `${enc.closed} cleared`],
+  ].map(([k, v, s]) => `<div class="stat"><dt>${k}</dt><dd>${v}${s ? ` <small>${s}</small>` : ""}</dd></div>`).join("");
+
+  const items = Object.fromEntries(works.items.map(i => [i.id, i]));
+  document.getElementById("pubbars").innerHTML = pr.items.map(p =>
+    `<li><span class="label">${items[p.item].name}</span><span class="pct">${p.pct}%</span>
+      <span class="track"><span class="fill" style="width:${p.pct}%"></span></span></li>`).join("");
+  document.getElementById("puboverall").textContent = pr.overall_pct + "%";
+
+  document.getElementById("pubreport").textContent =
+    `${cr.received} reports have been received from the public during this period. ${cr.verified} were ` +
+    `verified on the ground and ${cr.acted_on} led to action. Reports about dumping, filling or a blocked ` +
+    `inlet are the fastest way a problem reaches an officer between inspections.`;
+
+  AIQMap.draw(document.getElementById("plan"), data, {
+    title: "Lake boundary as notified", mapRef: "AIQ-L01-07",
+    asAt: AIQ.date(data.officer_view.as_of), acceptedOn: AIQ.date(data.spatial_baseline.accepted_on),
+    waterDate: "Sept 2026", sensors: false, changes: false,
+  });
+  document.getElementById("cap").textContent =
+    "The notified boundary and buffer. No case location, no survey number and no monitoring position is " +
+    "shown on the public map.";
+
+  /* ---- published / withheld ---- */
+  document.getElementById("pub").innerHTML =
+    `<thead><tr><th>Field</th><th>Why it can be published</th></tr></thead><tbody>` +
+    PV.published.map(x => `<tr><td><span class="check">✓</span> ${x.field}</td><td>${x.why}</td></tr>`).join("") + `</tbody>`;
+  document.getElementById("hid").innerHTML =
+    `<thead><tr><th>Field</th><th>Why it is withheld</th></tr></thead><tbody>` +
+    PV.withheld.map(x => `<tr><td><span class="cross">✕</span> ${x.field}</td><td>${x.why}</td></tr>`).join("") + `</tbody>`;
+});
+</script>
+</body>
+</html>

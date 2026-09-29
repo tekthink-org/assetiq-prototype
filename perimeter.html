@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Perimeter and bund — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body data-screen="perimeter">
+
+<div id="page" class="page">
+  <div class="phead">
+    <div class="row">
+      <div>
+        <h1>Perimeter and bund protection</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </div>
+
+  <dl class="stat-row" id="stats"></dl>
+
+  <div class="guard" id="finding"></div>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Protection, segment by segment</h2>
+      <div class="body">
+        <svg id="plan"></svg>
+        <p class="caption" id="cap"></p>
+      </div>
+    </section>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>Segments <span class="n">— click a row to locate it</span></h2>
+        <div class="scroll-x"><table class="reg" id="segs"></table></div>
+      </section>
+      <section class="panel" id="detail"></section>
+      <section class="panel">
+        <h2>What closes a perimeter</h2>
+        <div class="body">
+          <p>A notified boundary is a line on a record. A defended boundary is a line somebody cannot
+             cross without it being obvious. Four things convert one into the other:</p>
+          <ul class="plain">
+            <li><strong>A physical edge</strong> — bund, fence or wall, continuous rather than in stretches.</li>
+            <li><strong>A visible mark</strong> — boundary stones at survey-number corners, so the line can be
+              pointed at on the ground and not only on a map.</li>
+            <li><strong>A walked routine</strong> — the bank walk on the field screen, at a cadence short
+              enough that a fill is found in week one rather than week twelve.</li>
+            <li><strong>An observation pass</strong> — drone or satellite, so the stretches nobody walks are
+              still compared against the baseline.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="site">
+    <p id="dataline"></p>
+  </footer>
+</div>
+
+<script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
+<script>
+AIQShell.boot(async (data) => {
+  const PM = data.perimeter;
+  let current = (location.hash || "").replace("#", "") || PM.segments[0].id;
+  if (!PM.segments.some(s => s.id === current)) current = PM.segments[0].id;
+
+  const risk = PM.segments.filter(s => s.condition === "At risk");
+  document.getElementById("sub").textContent =
+    `${AIQ.num(PM.total_m)} m measured along the accepted FTL line · ${PM.segments.length} segments · ` +
+    `${PM.bund_m} m engineered bund, ${AIQ.num(PM.natural_bank_m)} m natural bank`;
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot ${risk.length ? "amber" : "green"}"></span> <span class="reason">${
+      risk.length} of ${PM.segments.length} segments at risk · ${PM.fenced_m} m fenced of ${AIQ.num(PM.fencing_sanctioned_m)} m sanctioned</span>`;
+  document.getElementById("dataline").textContent = PM.note + " " + data.meta.disclaimer;
+  document.getElementById("finding").innerHTML = `<strong>Finding.</strong> ${PM.finding}`;
+
+  const pct = Math.round(PM.fenced_m / PM.fencing_sanctioned_m * 100);
+  document.getElementById("stats").innerHTML = [
+    ["Perimeter", AIQ.num(PM.total_m) + " m", ""],
+    ["Engineered bund", PM.bund_m + " m", ""],
+    ["Natural bank", AIQ.num(PM.natural_bank_m) + " m", "unprotected unless fenced"],
+    ["Fenced", PM.fenced_m + " m", pct + "% of sanction"],
+    ["Shortfall against perimeter", PM.gap_m + " m", "not covered by the sanction"],
+    ["Segments at risk", risk.length + " of " + PM.segments.length, ""],
+  ].map(([k, v, s]) => `<div class="stat"><dt>${k}</dt><dd>${v}${s ? ` <small>${s}</small>` : ""}</dd></div>`).join("");
+
+  function draw() {
+    AIQMap.draw(document.getElementById("plan"), data, {
+      title: "Perimeter protection", mapRef: "AIQ-L01-04",
+      asAt: AIQ.date(data.officer_view.as_of), acceptedOn: AIQ.date(data.spatial_baseline.accepted_on),
+      waterDate: "Sept 2026", perimeter: true, highlightSegment: current, sensors: false, changes: false,
+    });
+    const s = PM.segments.find(x => x.id === current);
+    document.getElementById("cap").innerHTML =
+      `Chainage runs from 0 m at the western end of the bund, anticlockwise. <strong>${s.id}</strong> is drawn heavier.
+       A solid line is fenced; a broken line is not. ${PM.method}`;
+  }
+
+  function renderTable() {
+    document.getElementById("segs").innerHTML =
+      `<thead><tr><th>Segment</th><th>Reach</th><th>Length</th><th>Protection</th><th>Condition</th></tr></thead><tbody>` +
+      PM.segments.map(s => `<tr data-id="${s.id}" style="cursor:pointer" class="${s.id === current ? "accepted" : ""}">
+        <td><strong>${s.id}</strong><br><span class="wire-note" style="margin:0">${s.from_m}–${s.to_m} m</span></td>
+        <td>${s.reach}<br><span class="wire-note" style="margin:0">${s.type}</span></td>
+        <td>${s.length_m} m</td>
+        <td>${s.protection}${s.fenced ? "" : `<br><span class="wire-note" style="margin:0">not fenced</span>`}</td>
+        <td>${s.condition === "At risk" ? `<span class="badge late">At risk</span>` : `<span class="badge closed">${s.condition}</span>`}</td>
+      </tr>`).join("") + `</tbody>`;
+    document.querySelectorAll("#segs tbody tr").forEach(r => r.addEventListener("click", () => {
+      current = r.dataset.id; location.replace("#" + current); renderAll();
+    }));
+  }
+
+  function renderDetail() {
+    const s = PM.segments.find(x => x.id === current);
+    const item = s.work_item ? data.restoration_works.items.find(i => i.id === s.work_item) : null;
+    const prog = item ? data.restoration_works.precomputed_progress.items.find(p => p.item === item.id) : null;
+    const cases = (data.encroachment_cases || []).filter(c => c.perimeter_segment === s.id);
+    document.getElementById("detail").innerHTML = `
+      <h2>${s.id} · ${s.reach}</h2>
+      <div class="body">
+        <dl class="kv" style="margin-bottom:0.8rem">
+          <dt>Chainage</dt><dd>${s.from_m} m to ${s.to_m} m (${s.length_m} m)</dd>
+          <dt>Type</dt><dd>${s.type}</dd>
+          <dt>Protection in place</dt><dd>${s.protection}</dd>
+          <dt>Fenced</dt><dd>${s.fenced ? "Yes, part of the stretch" : "No"}</dd>
+          <dt>Condition</dt><dd>${s.condition}</dd>
+        </dl>
+        <div class="${s.condition === "At risk" ? "guard" : "note-box"}"><strong>Open point.</strong> ${s.issue}</div>
+        ${item ? `<h3>Sanctioned work on this stretch</h3>
+          <p class="wire-note">${item.id} ${item.name} — ${prog ? prog.pct : 0}% of ${AIQ.num(item.sanctioned_qty)} ${item.unit.replace("m3", "m³")}
+            executed, planned by ${AIQ.date(item.planned_by)}. <a href="works.html">Open restoration progress</a>.</p>`
+          : `<p class="wire-note">No sanctioned work covers this stretch. Protection here depends on the
+             bank walk and the observation passes.</p>`}
+        ${cases.length ? `<h3 style="margin-top:0.9rem">Cases on this stretch</h3><ul class="events">${cases.map(c =>
+          `<li><p class="title"><a href="encroachment.html#${c.id}">${c.id} — ${c.type}</a></p>
+            <p class="meta">Survey ${c.survey_no} · ${c.stage}</p></li>`).join("")}</ul>` : ""}
+      </div>`;
+  }
+
+  function renderAll() { draw(); renderTable(); renderDetail(); }
+  renderAll();
+  window.addEventListener("hashchange", () => {
+    const h = location.hash.replace("#", "");
+    if (h && PM.segments.some(s => s.id === h) && h !== current) { current = h; renderAll(); }
+  });
+});
+</script>
+</body>
+</html>

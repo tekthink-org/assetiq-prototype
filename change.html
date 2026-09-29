@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Change detection — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body data-screen="change">
+
+<div id="page" class="page">
+  <div class="phead">
+    <div class="row">
+      <div>
+        <h1>Change detection</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </div>
+
+  <dl class="stat-row" id="stats"></dl>
+
+  <div class="note-box" id="method"></div>
+
+  <div class="cols">
+    <div class="stack">
+      <section class="panel">
+        <h2>Candidates raised by the last pass</h2>
+        <div class="scroll-x"><table class="reg" id="cands"></table></div>
+        <div class="body"><p class="wire-note">Two of the three were rejected. A system that only ever
+          confirms is not detecting change, it is agreeing with itself.</p></div>
+      </section>
+
+      <section class="panel" id="detail"></section>
+    </div>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>What the pass found on the ground</h2>
+        <div class="body">
+          <svg id="plan"></svg>
+          <p class="caption" id="cap"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Water spread, month by month</h2>
+        <div class="body">
+          <svg id="chart"></svg>
+          <p class="caption" id="wcap"></p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Observation passes</h2>
+        <div class="scroll-x"><table class="reg" id="passes"></table></div>
+        <div class="body"><p class="wire-note" id="nextpass"></p></div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="site">
+    <p id="dataline"></p>
+  </footer>
+</div>
+
+<script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
+<script>
+AIQShell.boot(async (data) => {
+  const CD = data.change_detection;
+  const last = CD.passes.at(-1);
+  let current = (location.hash || "").replace("#", "") || CD.candidates[0].id;
+  if (!CD.candidates.some(c => c.id === current)) current = CD.candidates[0].id;
+
+  document.getElementById("sub").textContent =
+    `Pass ${last.id} of ${AIQ.date(last.date)} compared against baseline ${data.spatial_baseline.id} ` +
+    `and against pass ${CD.passes[0].id} of ${AIQ.date(CD.passes[0].date)}`;
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot ${last.confirmed ? "amber" : "green"}"></span> <span class="reason">` +
+    `${last.candidates} candidates, ${last.confirmed} confirmed on the ground, ${last.rejected} rejected</span>`;
+  document.getElementById("method").innerHTML = `<p><strong>How this works.</strong> ${CD.method}</p>
+    <p><strong>What it is not.</strong> ${CD.not_built}</p>`;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  const confirmRate = Math.round(last.confirmed / last.candidates * 100);
+  document.getElementById("stats").innerHTML = [
+    ["Passes flown", CD.passes.length, "in the pilot"],
+    ["Candidates raised", last.candidates, "last pass"],
+    ["Confirmed", last.confirmed, confirmRate + "% of candidates"],
+    ["Rejected on review", last.rejected, ""],
+    ["Ground resolution", last.gsd_cm + " cm", "per pixel"],
+    ["Next pass due", AIQ.date(CD.next_pass_due), ""],
+  ].map(([k, v, s]) => `<div class="stat"><dt>${k}</dt><dd>${v}${s ? ` <small>${s}</small>` : ""}</dd></div>`).join("");
+
+  /* candidates */
+  function renderCands() {
+    document.getElementById("cands").innerHTML =
+      `<thead><tr><th>Ref</th><th>What changed</th><th>Where</th><th>Extent</th><th>Outcome</th></tr></thead><tbody>` +
+      CD.candidates.map(c => `<tr data-id="${c.id}" style="cursor:pointer" class="${c.id === current ? "accepted" : ""}">
+        <td><strong>${c.id}</strong></td>
+        <td>${c.type}</td>
+        <td>${AIQ.zone(data, c.zone)}${c.survey_no ? `<br><span class="wire-note" style="margin:0">survey ${c.survey_no}</span>` : ""}</td>
+        <td>${AIQ.num(c.area_m2)} m²${c.elevation_change_m ? `<br><span class="wire-note" style="margin:0">+${c.elevation_change_m} m</span>` : ""}</td>
+        <td>${c.outcome === "confirmed" ? `<span class="badge late">Confirmed</span>` : `<span class="badge closed">Rejected</span>`}</td>
+      </tr>`).join("") + `</tbody>`;
+    document.querySelectorAll("#cands tbody tr").forEach(r => r.addEventListener("click", () => {
+      current = r.dataset.id; location.replace("#" + current); renderAll();
+    }));
+  }
+
+  function renderDetail() {
+    const c = CD.candidates.find(x => x.id === current);
+    const cs = c.case ? data.encroachment_cases.find(x => x.id === c.case) : null;
+    const e = c.event ? data.events.find(x => x.id === c.event) : null;
+    document.getElementById("detail").innerHTML = `
+      <h2>${c.id} · ${c.type}</h2>
+      <div class="body">
+        <dl class="kv" style="margin-bottom:0.8rem">
+          <dt>Raised by</dt><dd>Pass ${c.pass}, ${AIQ.date(c.raised_on)}</dd>
+          <dt>Where</dt><dd>${AIQ.zone(data, c.zone)}${c.survey_no ? `, survey ${c.survey_no}` : ""}</dd>
+          <dt>Area flagged</dt><dd>${AIQ.num(c.area_m2)} m²</dd>
+          ${c.elevation_change_m ? `<dt>Height change</dt><dd>${c.elevation_change_m} m against the surface model</dd>` : ""}
+          <dt>Outcome</dt><dd>${c.outcome === "confirmed" ? "Confirmed on the ground" : "Rejected on review"}</dd>
+        </dl>
+        <div class="${c.outcome === "confirmed" ? "guard" : "note-box"}">
+          <strong>${c.outcome === "confirmed" ? "What the field team found." : "Why it was rejected."}</strong>
+          ${c.review}
+        </div>
+        ${cs ? `<p class="wire-note">Opened as case <a href="encroachment.html#${cs.id}">${cs.id}</a>
+          on survey ${cs.survey_no}. ${e ? `Alert <a href="alerts.html#p=${e.parameter}&e=${e.id}">${e.title}</a>.` : ""}</p>`
+          : `<p class="wire-note">No case was opened. The candidate stays on record with the reason, so the
+             same area is not re-raised at the next pass without someone seeing that it was looked at before.</p>`}
+      </div>`;
+  }
+
+  function draw() {
+    const c = CD.candidates.find(x => x.id === current);
+    AIQMap.draw(document.getElementById("plan"), data, {
+      title: "Change against the baseline", mapRef: "AIQ-L01-06",
+      asAt: AIQ.date(last.date), acceptedOn: AIQ.date(data.spatial_baseline.accepted_on),
+      waterDate: "Sept 2026", changeDate: AIQ.date(last.date),
+      parcels: Boolean(c.survey_no), highlightParcel: c.survey_no ? "SN-115-2" : null, sensors: false,
+    });
+    document.getElementById("cap").textContent = c.polygon_id
+      ? `The confirmed change is outlined in red on the north bank. Only confirmed changes are drawn; a rejected candidate does not become a map feature.`
+      : `${c.id} is not drawn: it was rejected on review, and a rejected candidate does not become a map feature.`;
+  }
+
+  /* water spread trend */
+  const ws = CD.water_spread_series;
+  AIQ.drawChart(document.getElementById("chart"),
+    ws.map(m => ({ day: m.month + "-15", v: m.water_spread_ha })),
+    { unit: " ha", label: "Water spread by month" });
+  document.getElementById("wcap").textContent =
+    `Water spread from satellite imagery, ${ws[0].month} to ${ws.at(-1).month}. ` +
+    `${ws[0].water_spread_ha} ha to ${ws.at(-1).water_spread_ha} ha. ${data.satellite_note} ` +
+    `A rise after heavy rain is seasonal, which is why candidate CD-002 was rejected.`;
+
+  /* passes */
+  document.getElementById("passes").innerHTML =
+    `<thead><tr><th>Pass</th><th>Date</th><th>Role</th><th>Candidates</th><th>Confirmed</th></tr></thead><tbody>` +
+    CD.passes.map(p => `<tr><td><strong>${p.id}</strong></td><td>${AIQ.date(p.date)}</td>
+      <td>${p.role}<br><span class="wire-note" style="margin:0">${p.gsd_cm} cm, ${p.area_ha} ha</span></td>
+      <td>${p.candidates}</td><td>${p.confirmed}</td></tr>`).join("") + `</tbody>`;
+  document.getElementById("nextpass").textContent =
+    `Next pass due ${AIQ.date(CD.next_pass_due)}. The gap between passes is the window in which a change ` +
+    `can begin unseen; the bank walk on the field screen is what shortens it.`;
+
+  function renderAll() { renderCands(); renderDetail(); draw(); }
+  renderAll();
+  window.addEventListener("hashchange", () => {
+    const h = location.hash.replace("#", "");
+    if (h && CD.candidates.some(c => c.id === h) && h !== current) { current = h; renderAll(); }
+  });
+});
+</script>
+</body>
+</html>

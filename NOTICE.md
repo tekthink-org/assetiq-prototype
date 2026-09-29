@@ -14,6 +14,12 @@ No licence, express or implied, is granted by the publication of this repository
 
 This repository is **private**. Do not make it public, and do not add an open-source licence file.
 
+## Prototype 2.0 additions
+
+The survey-number register, perimeter model, encroachment case structure, lifecycle gates, field form
+set, role model and amenity assessment added in prototype 2.0 are part of the Asset IQ application layer
+and are proprietary to TekThink Innovations Private Limited.
+
 ## What must not be committed here
 
 Architecture documents, the HYDRA proposal, internal working notes and any material naming a real authority, lake or person. Those belong in the Drive controlled library.

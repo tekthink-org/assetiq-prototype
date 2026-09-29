@@ -4,184 +4,263 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Alerts — AssetIQ</title>
+<title>Alerts by parameter — AssetIQ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/aiq.css">
 </head>
-<body>
+<body data-screen="alerts">
 
-<header class="masthead">
-  <div class="wrap">
-    <span class="wordmark">Asset<span>IQ</span></span>
-    <span class="authority" id="authority"></span>
-  </div>
-</header>
-
-<div class="demo-banner">
-  <div class="wrap">Interactive wireframe. Nothing you click here is recorded.</div>
-</div>
-
-<main class="wrap">
-  <section class="lake-head">
+<div id="page" class="page">
+  <div class="phead">
     <div class="row">
       <div>
-        <h1>Alert, verify, act</h1>
-        <p class="sub" id="sub"></p>
-        <p class="sub" id="demo-state"></p>
+        <h1>Alerts, by monitoring parameter</h1>
+        <p class="sub">Choose what is being monitored. Each parameter shows what it measures, where the
+          readings come from, and every event raised against it — with the person who has to act.</p>
       </div>
+      <p class="verdict" id="demo-state"></p>
     </div>
-  </section>
+  </div>
+
+  <div class="tiles" id="ptiles"></div>
+
+  <section class="panel" id="pctx" style="margin-bottom:1.1rem"></section>
 
   <div class="two-pane">
     <div>
       <div class="filters" id="filters"></div>
       <ul class="alert-list" id="list"></ul>
     </div>
-    <section class="detail" id="detail"></section>
+    <section id="detail"></section>
   </div>
 
-  <a class="backlink" href="lake.html">Back to the lake view</a>
-</main>
-
-<footer class="site">
-  <div class="wrap">
-    <p>No alert is treated as fact until a person confirms it in the field. Every confirmation carries the name of the person who made it, the time, the place and the photograph they took.</p>
+  <footer class="site">
+    <p>No alert is treated as a finding until a person has confirmed it on the ground. Every confirmation
+       carries the name of the person who made it, the time, the place and the photograph they took.</p>
     <p id="dataline"></p>
-  </div>
-</footer>
+  </footer>
+</div>
 
 <script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
 <script>
-const FILTERS = [
-  { id: "action", label: "Needs action" },
-  { id: "open", label: "Open" },
-  { id: "closed", label: "Settled" },
-  { id: "all", label: "All" }
-];
-const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
-
-(async () => {
-  const data = await aiqLoad().catch(err => { console.error(err); return null; });
-  if (!data) {
-    document.getElementById("sub").textContent =
-      "The demonstration data did not load. Serve this folder over HTTP rather than opening the file directly.";
-    return;
-  }
+AIQShell.boot(async (data) => {
   const asOf = data.officer_view.as_of.slice(0, 10);
   const rawById = Object.fromEntries(data.events.map(e => [e.id, e]));
-  const byId = id => AIQ.withAction(rawById[id]);
-  const allEvents = () => data.events.map(AIQ.withAction);
-  const userName = id => {
-    const u = data.users.find(u => u.id === id);
-    return u ? `${u.name}, ${u.role}` : (id || "—");
-  };
-  const late = e => e.deadline && e.deadline < asOf && OPEN_STATES.includes(e.status);
-  const state = e => ({
-    open: "Waiting on verification or action",
-    verified_action_open: "Verified, action open",
-    escalated: "Escalated for a ruling",
-    recorded: "Recorded, no action needed",
-    rejected: "Checked and dismissed",
-    closed: "Closed"
-  })[e.status] || e.status;
+  const ev = id => AIQ.withAction(rawById[id]);
+  const all = () => data.events.map(AIQ.withAction);
+  const userName = id => { const u = data.users.find(u => u.id === id); return u ? `${u.name}, ${u.role}` : (id || "—"); };
+  const late = e => AIQ.isLate(e, asOf);
+  /* sources a field visit can actually confirm; a filing deadline is not one of them */
+  const FIELD_CHECKABLE = ["drone", "satellite", "in_situ_sensor", "citizen_report", "field_inspection", "laboratory"];
 
-  document.getElementById("authority").textContent = data.authority.name;
-  document.getElementById("sub").textContent =
-    `${data.asset.display_name} · ${data.events.length} events in the pilot period · as at ${AIQ.dateTime(data.officer_view.as_of)}`;
+  /* self-explanatory state wording */
+  const STATE = {
+    open: "Raised, awaiting a check",
+    verified_action_open: "Verified on the ground, action still open",
+    escalated: "Escalated for a ruling",
+    recorded: "Recorded for the record, no action needed",
+    rejected: "Checked on the ground and dismissed",
+    closed: "Closed",
+  };
+
+  const stateLabel = e => e.status === "open"
+    ? (FIELD_CHECKABLE.includes(e.evidence_source) ? "Raised, awaiting field verification" : "Raised, awaiting action")
+    : (STATE[e.status] || e.status);
+
   document.getElementById("dataline").textContent = data.meta.disclaimer;
 
-  let filter = "action";
-  const match = e => filter === "all" ? true
-    : filter === "closed" ? !OPEN_STATES.includes(e.status)
-    : filter === "open" ? OPEN_STATES.includes(e.status)
-    : OPEN_STATES.includes(e.status) && (late(e) || data.officer_view.needs_decision_today.some(d => d.event === e.id));
+  /* ---- state ---------------------------------------------------------- */
+  const qs = new URLSearchParams(location.hash.replace(/^#/, ""));
+  let param = qs.get("p") || "boundary";
+  let filter = "open";
+  let current = qs.get("e") || null;
+  if (!data.parameters.some(p => p.key === param)) param = "boundary";
 
+  const inParam = () => all().filter(e => e.parameter === param);
+  const match = e => filter === "all" ? true
+    : filter === "open" ? AIQ.isOpen(e)
+    : filter === "late" ? late(e)
+    : !AIQ.isOpen(e);
+
+  function syncHash() {
+    location.replace("#p=" + param + (current ? "&e=" + current : ""));
+  }
+
+  /* ---- parameter tiles ------------------------------------------------ */
+  function renderTiles() {
+    document.getElementById("ptiles").innerHTML = data.parameters.map(p => {
+      const h = AIQ.health(data, p.key);
+      const on = p.key === param;
+      return `<a class="tile ${h.status}" href="#p=${p.key}" data-p="${p.key}"
+                 style="${on ? "border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)" : ""}">
+        <div class="tile-k"><span class="tile-t">${p.name}</span>
+          <span class="tile-n sm">${h.open || "—"}</span></div>
+        <p class="tile-f">${h.late ? `${h.late} overdue · ` : ""}${h.open ? `${h.open} open of ${h.total}` : "nothing open"}</p>
+      </a>`;
+    }).join("");
+    document.querySelectorAll("[data-p]").forEach(a => a.addEventListener("click", e => {
+      e.preventDefault(); param = a.dataset.p; current = null; syncHash(); renderAll();
+    }));
+  }
+
+  /* ---- what this parameter is ----------------------------------------- */
+  function renderContext() {
+    const p = AIQ.param(data, param);
+    const h = AIQ.health(data, param);
+    const box = document.getElementById("pctx");
+
+    let extra = "";
+    if (param === "water_quality") {
+      const t = data.thresholds;
+      extra = `<table class="reg"><thead><tr><th>Reading</th><th>What it tells you</th><th>Working threshold</th></tr></thead><tbody>
+        <tr><td>Dissolved oxygen</td><td>Whether the water can support life; falls sharply when untreated sewage enters</td><td>Alert below ${t.do_mg_l.alert_below} mg/L</td></tr>
+        <tr><td>pH</td><td>Acidity; a swing indicates an industrial or chemical inflow</td><td>Alert outside ${t.ph.alert_below}–${t.ph.alert_above}</td></tr>
+        <tr><td>Turbidity</td><td>Suspended solids; rises with run-off and with earthworks</td><td>Alert above ${t.turbidity_ntu.alert_above} NTU</td></tr>
+        <tr><td>BOD (laboratory)</td><td>Organic load; the standing measure of sewage contamination</td><td>Flagged above 10 mg/L</td></tr>
+      </tbody></table><p class="wire-note">Thresholds are illustrative and would be set against the applicable standard for the site.</p>`;
+    } else if (param === "storage") {
+      const b = data.spatial_baseline.bathymetry;
+      extra = `<dl class="kv">
+        <dt>Water spread now</dt><dd>${data.satellite_series.at(-1).water_spread_ha} ha</dd>
+        <dt>Storage at full tank level</dt><dd>${AIQ.num(b.storage_at_ftl_ml)} ML</dd>
+        <dt>Design storage on record</dt><dd>${AIQ.num(b.design_storage_ml)} ML</dd>
+        <dt>Lost to silt</dt><dd>${b.storage_loss_pct}%</dd>
+        <dt>Gauge</dt><dd>${data.asset.gauge_datum_note.replace(" (synthetic)", "")}</dd></dl>`;
+    } else if (param === "boundary") {
+      const enc = data.encroachment_summary;
+      extra = `<dl class="kv">
+        <dt>Boundary length</dt><dd>${AIQ.num(data.perimeter.total_m)} m</dd>
+        <dt>Fenced</dt><dd>${data.perimeter.fenced_m} m</dd>
+        <dt>Encroachment cases open</dt><dd>${enc.open} · ${enc.area_open_ac} ac</dd>
+        <dt>Record disputes</dt><dd>${data.record_discrepancies.filter(d => d.status === "escalated_for_ruling").length} awaiting a ruling</dd></dl>
+        <p class="wire-note">Case detail sits on the <a href="encroachment.html">encroachment screen</a>;
+           the boundary itself is on <a href="baseline.html">boundary and records</a>.</p>`;
+    } else if (param === "structures") {
+      const risk = data.perimeter.segments.filter(s => s.condition === "At risk");
+      extra = `<p>${risk.length} of ${data.perimeter.segments.length} perimeter segments are recorded as at risk:
+        ${risk.map(s => `<strong>${s.id}</strong> ${s.reach}`).join("; ")}.</p>
+        <p class="wire-note">Segment detail is on <a href="perimeter.html">perimeter and bund</a>.</p>`;
+    } else if (param === "works") {
+      const pr = data.restoration_works.precomputed_progress;
+      extra = `<p>Overall progress <strong>${pr.overall_pct}%</strong> by sanctioned value, from
+        ${data.restoration_works.measurements.length} check-measured entries.</p>
+        <p class="wire-note">Item detail is on <a href="works.html">restoration progress</a>.</p>`;
+    } else if (param === "ecology") {
+      const s = data.satellite_series;
+      extra = `<p>Weed cover has moved from ${s[0].weed_cover_pct}% in ${s[0].month} to
+        ${s.at(-1).weed_cover_pct}% in ${s.at(-1).month}, estimated from satellite imagery
+        and checked against inspection photographs.</p>`;
+    } else if (param === "monitoring") {
+      extra = `<p>${data.sensor_devices.length} stations, reading every
+        ${data.sensor_devices[0].interval_h} hours. ${data.sensor_gaps.length} gap in the record during the pilot:
+        ${data.sensor_gaps.map(g => `${g.device}, ${AIQ.dateTime(g.from)} to ${AIQ.dateTime(g.to)} — ${g.cause}`).join("; ")}.</p>`;
+    } else if (param === "compliance") {
+      extra = `<table class="reg"><thead><tr><th>Submission</th><th>Authority</th><th>Due</th><th>State</th></tr></thead><tbody>
+        ${data.compliance_targets.map(c => `<tr><td>${c.report}</td><td>${c.authority}</td>
+          <td>${AIQ.date(c.next_due)}</td><td>${c.draft_status.replace(/_/g, " ")}</td></tr>`).join("")}
+      </tbody></table>`;
+    } else if (param === "flood") {
+      const lv = data.sensor_readings.filter(r => r.device === "SN-LV1");
+      const cur = lv.at(-1).level_m, peak = Math.max(...lv.map(r => r.level_m));
+      extra = `<dl class="kv">
+        <dt>Level now</dt><dd>${cur.toFixed(2)} m on gauge</dd>
+        <dt>Below full tank level by</dt><dd>${(data.asset.ftl_gauge_m - cur).toFixed(2)} m</dd>
+        <dt>Highest in the pilot</dt><dd>${peak.toFixed(2)} m</dd>
+        <dt>Surplus weir</dt><dd>Operating; inspected after the July rain</dd></dl>`;
+    }
+
+    box.innerHTML = `<h2>${p.name} <span class="n">— what is measured and where it comes from</span></h2>
+      <div class="body">
+        <p>${p.what}.</p>
+        <p class="wire-note">Read from: ${(p.sources || []).join(" · ")}.
+          ${h.open ? `${h.open} event${h.open > 1 ? "s" : ""} open` : "Nothing open"} of ${h.total} raised in the pilot period.</p>
+        ${extra}
+      </div>`;
+  }
+
+  /* ---- list ------------------------------------------------------------ */
   function renderFilters() {
-    document.getElementById("filters").innerHTML = FILTERS.map(f =>
-      `<button type="button" data-f="${f.id}" aria-pressed="${f.id === filter}">${f.label}</button>`).join("");
-    document.querySelectorAll("#filters button").forEach(b =>
-      b.addEventListener("click", () => { filter = b.dataset.f; renderFilters(); renderList(); }));
+    const rows = inParam();
+    const counts = {
+      open: rows.filter(AIQ.isOpen).length,
+      late: rows.filter(late).length,
+      settled: rows.filter(e => !AIQ.isOpen(e)).length,
+      all: rows.length,
+    };
+    const F = [["open", "Open"], ["late", "Overdue"], ["settled", "Settled"], ["all", "All"]];
+    document.getElementById("filters").innerHTML = F.map(([k, l]) =>
+      `<button type="button" data-f="${k}" aria-pressed="${k === filter}">${l} (${counts[k]})</button>`).join("");
+    document.querySelectorAll("#filters button").forEach(b => b.addEventListener("click", () => {
+      filter = b.dataset.f; renderList(); renderDetail();
+    }));
   }
 
   function renderList() {
-    const rows = allEvents().filter(match);
-    document.getElementById("list").innerHTML = rows.length ? rows.map(e =>
-      `<li><button type="button" data-id="${e.id}" aria-current="${e.id === current}">
-         <span class="t">${e.title}</span>
-         <span class="m">${AIQ.source(e.evidence_source)} · ${AIQ.date(e.raised_at)}${
-           e.deadline ? ` · <span class="${late(e) ? "late" : ""}">due ${AIQ.date(e.deadline)}</span>` : ""}</span>
-       </button></li>`).join("")
-      : `<li><span class="m" style="display:block;padding:0.9rem">Nothing in this group.</span></li>`;
-    document.querySelectorAll("#list button").forEach(b =>
-      b.addEventListener("click", () => select(b.dataset.id)));
-  }
-
-
-  function actionPanel(e) {
-    if (e.demo_action) {
-      return `<div class="taken">
-        <strong>${e.demo_action.label}</strong>
-        <p>${e.demo_action.by} · ${AIQ.dateTime(e.demo_action.at)}${e.demo_action.note ? ` · “${e.demo_action.note}”` : ""}</p>
-      </div>`;
+    const rows = inParam().filter(match);
+    const el = document.getElementById("list");
+    if (!rows.length) {
+      el.innerHTML = `<li><span class="m" style="display:block;padding:0.8rem">Nothing in this group for this parameter.</span></li>`;
+      current = null; return;
     }
-    if (!OPEN_STATES.includes(e.status)) {
-      return `<p class="wire-note">This one is settled. Nothing is waiting on you.</p>`;
-    }
-    return `<div class="actions">
-        <button type="button" id="do-act" data-label="${e.action || "Decision recorded"}">${e.action || "Record a decision"}</button>
-        <button type="button" class="secondary" id="do-field">Send to field for check</button>
-        <button type="button" class="secondary" id="do-close">Close with a reason</button>
-      </div>
-      <label class="reason-row" for="reason">Note (optional)</label>
-      <input id="reason" type="text" placeholder="e.g. removal scheduled for Monday with the revenue team">`;
+    if (!rows.some(e => e.id === current)) current = rows[0].id;
+    el.innerHTML = rows.map(e => `
+      <li><button type="button" data-id="${e.id}" aria-current="${e.id === current}">
+        <span class="t">${e.title}</span>
+        <span class="m">Found by ${AIQ.source(e.evidence_source).toLowerCase()} on ${AIQ.date(e.raised_at)}${
+          e.deadline ? ` · <span class="${late(e) ? "late" : ""}">action ${late(e) ? "was due" : "due"} ${AIQ.date(e.deadline)}</span>` : ""}</span>
+      </button></li>`).join("");
+    el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+      current = b.dataset.id; syncHash(); renderDetail();
+    }));
   }
 
-  function renderBanner() {
-    const n = AIQ.actions.count();
-    const el = document.getElementById("demo-state");
-    el.innerHTML = n
-      ? `${n} decision${n > 1 ? "s" : ""} recorded in this tab. <button type="button" class="linkish" id="reset">Reset the demonstration</button>`
-      : "";
-    const r = document.getElementById("reset");
-    if (r) r.addEventListener("click", () => { AIQ.actions.clear(); renderList(); select(current); renderBanner(); });
-  }
-
+  /* ---- detail ---------------------------------------------------------- */
   function chain(e) {
-    const steps = [];
-    steps.push({ cls: "done", step: "Raised", when: AIQ.dateTime(e.raised_at),
-      text: `${AIQ.source(e.evidence_source)}${e.raised_by ? ` · ${userName(e.raised_by)}` : ""}` });
-
+    const steps = [{
+      cls: "done", step: "Raised", when: AIQ.dateTime(e.raised_at),
+      text: `Source: ${AIQ.source(e.evidence_source).toLowerCase()}${e.raised_by ? ` · ${userName(e.raised_by)}` : ""}`
+    }];
     if (e.status === "rejected") {
-      steps.push({ cls: "done", step: "Checked and dismissed",
+      steps.push({ cls: "done", step: "Checked on the ground and dismissed",
         when: e.closed_on ? AIQ.date(e.closed_on) : "",
-        text: `${userName(e.verified_by || e.owner)} checked it on the ground and found no fault. ` +
-              `The alert stays on record with the reason.` });
+        text: `${userName(e.verified_by || e.owner)} found no fault. The alert stays on record with the reason.` });
     } else if (e.verified_by) {
-      steps.push({ cls: "done", step: "Verified in the field",
+      steps.push({ cls: "done", step: "Verified on the ground",
         when: e.verified_on ? AIQ.date(e.verified_on) : "",
         text: `${userName(e.verified_by)}. A second person confirms what the system raised.` });
-    } else if (OPEN_STATES.includes(e.status)) {
-      steps.push({ cls: "waiting", step: "Verification pending", when: "",
-        text: "Nobody has confirmed this on the ground yet." });
+    } else if (e.status === "recorded") {
+      steps.push({ cls: "done", step: "Recorded against the baseline", when: "",
+        text: "A survey finding noted for the record. It sets a figure others are measured against "
+            + "rather than raising an action." });
+    } else if (e.status === "escalated") {
+      steps.push({ cls: "waiting", step: "Referred for a ruling", when: e.deadline ? `due ${AIQ.date(e.deadline)}` : "",
+        text: `With ${userName(e.owner)}. The authority decides which record governs; we do not resolve it ourselves.` });
+    } else if (AIQ.isOpen(e) && FIELD_CHECKABLE.includes(e.evidence_source)) {
+      steps.push({ cls: "waiting", step: "Awaiting field verification", when: "",
+        text: "Nobody has confirmed this on the ground yet, so it is not treated as a finding." });
+    } else if (AIQ.isOpen(e)) {
+      steps.push({ cls: "waiting", step: "Awaiting action by the owner", when: "",
+        text: `Nothing to verify in the field — this comes from a record. With ${userName(e.owner)}.` });
     }
-
     if (e.action) {
-      steps.push({ cls: (e.status === "closed" || e.demo_action) ? "done" : "waiting", step: "Action", when: e.deadline ? `due ${AIQ.date(e.deadline)}` : "",
-        text: `${e.action} · ${userName(e.owner)}` });
+      steps.push({ cls: (e.status === "closed" || e.demo_action) ? "done" : "waiting", step: "Action required",
+        when: e.deadline ? `${late(e) ? "was due" : "due"} ${AIQ.date(e.deadline)}` : "",
+        text: `${e.action} · with ${userName(e.owner)}` });
     } else if (e.status === "closed") {
-      steps.push({ cls: "done", step: "Closed", when: AIQ.date(e.closed_on), text: userName(e.owner) });
+      steps.push({ cls: "done", step: "Closed", when: e.closed_on ? AIQ.date(e.closed_on) : "", text: userName(e.owner) });
     }
     if (e.demo_action) {
       steps.push({ cls: "done", step: e.demo_action.label, when: AIQ.dateTime(e.demo_action.at),
         text: `${e.demo_action.by}${e.demo_action.note ? ` · “${e.demo_action.note}”` : ""}` });
     }
-
     if (e.compliance_target) {
       const c = data.compliance_targets.find(c => c.id === e.compliance_target);
-      if (c) steps.push({ cls: "waiting", step: "Feeds compliance", when: `due ${AIQ.date(c.next_due)}`,
-        text: `${c.report} — ${c.authority}` });
+      if (c) steps.push({ cls: "waiting", step: "Feeds a compliance submission",
+        when: `due ${AIQ.date(c.next_due)}`, text: `${c.report} — ${c.authority}` });
     }
     return steps;
   }
@@ -191,56 +270,77 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
     const items = data.media_ledger.filter(m => ids.includes(m.id) || (m.linked_to || []).includes(e.id));
     if (!items.length) return `<p class="wire-note">This event rests on records rather than captured media: ${ids.join(", ")}.</p>`;
     return `<div class="evidence">` + items.map(m => `
-      <figure>
-        <div class="frame">${m.role_note || m.kind.replace(/_/g, " ")}</div>
-        <figcaption>
-          <span class="who">${userName(m.captured_by).split(",")[0]}</span> · ${AIQ.dateTime(m.captured_at)}<br>
-          grid ${m.location[0]}, ${m.location[1]}<br>
-          <span class="hash">${m.sha256.slice(0, 16)}…</span>
-        </figcaption>
-      </figure>`).join("") + `</div>`;
+      <figure><div class="frame">${m.role_note || m.kind.replace(/_/g, " ")}</div>
+        <figcaption><span class="who">${userName(m.captured_by).split(",")[0]}</span> · ${AIQ.dateTime(m.captured_at)}<br>
+          Local grid ${m.location[0]}, ${m.location[1]}<br>
+          <span class="hash">SHA-256 ${m.sha256.slice(0, 12)}…</span></figcaption></figure>`).join("") + `</div>`;
   }
 
-  let current = location.hash.slice(1) || "EV-01";
-  if (!rawById[current]) current = "EV-01";
+  function actionPanel(e) {
+    if (e.demo_action) {
+      return `<div class="taken"><strong>${e.demo_action.label}</strong>
+        <p>${e.demo_action.by} · ${AIQ.dateTime(e.demo_action.at)}${e.demo_action.note ? ` · “${e.demo_action.note}”` : ""}</p></div>`;
+    }
+    if (!AIQ.isOpen(e)) return `<p class="wire-note">This one is settled. Nothing is waiting on you.</p>`;
+    return `<div class="actions">
+        <button type="button" id="do-act">${e.action || "Record a decision"}</button>
+        <button type="button" class="secondary" id="do-field">Send to the field for a check</button>
+        <button type="button" class="secondary" id="do-close">Close with a reason</button>
+      </div>
+      <label class="reason-row" for="reason">Note, optional</label>
+      <input id="reason" type="text" placeholder="e.g. removal scheduled Monday with the revenue team">`;
+  }
 
-  function select(id) {
-    current = id;
-    history.replaceState(null, "", "#" + id);
-    const e = byId(id);
-    const badge = late(e) ? "late" : OPEN_STATES.includes(e.status) ? "open" : "closed";
-    document.getElementById("detail").innerHTML = `
-      <h2>${e.title}</h2>
-      <p class="tagline">
-        <span class="badge ${badge}">${late(e) ? "Overdue · " : ""}${state(e)}</span>
-        &nbsp;${AIQ.zone(data, e.zone)} · ${AIQ.source(e.evidence_source)} · ${AIQ.custody(e.custody_state)}
-      </p>
-      ${e.consequence_if_not_acted === "—" ? "" : `<div class="consequence">
-        <strong>${OPEN_STATES.includes(e.status) ? "If this is not acted on" : "Why it was raised"}</strong>
-        ${e.consequence_if_not_acted}
-      </div>`}
-      <p>${e.detail}</p>
-      <h3>What happened</h3>
-      <ul class="chain">${chain(e).map(s => `
-        <li class="${s.cls}">
-          <span class="step">${s.step}</span> <span class="when">${s.when}</span>
-          <p>${s.text}</p>
-        </li>`).join("")}</ul>
-      <h3>Evidence</h3>
-      ${evidence(e)}
-      <h3>Your options</h3>
-      ${actionPanel(e)}
-      ${e.demo_action ? `<p class="wire-note">Recorded in this browser tab only, at ${AIQ.dateTime(e.demo_action.at)}. It disappears when the page is refreshed.
-        <button type="button" class="linkish" id="undo">Undo</button></p>` : `<p class="wire-note">Decisions taken here live in this browser tab only. Nothing is sent anywhere.</p>`}`;
+  function renderDetail() {
+    const box = document.getElementById("detail");
+    if (!current) { box.innerHTML = ""; return; }
+    const e = ev(current);
+    const badge = late(e) ? "late" : AIQ.isOpen(e) ? "open" : "closed";
+    const enc = (data.encroachment_cases || []).find(c => c.event === e.id);
 
-    const panel = document.getElementById("detail");
+    box.innerHTML = `
+      <div class="panel"><div class="body">
+        <h2 style="font-size:var(--step-1)">${e.title}</h2>
+        <p class="sub" style="margin-bottom:0.9rem">
+          <span class="badge ${badge}">${late(e) ? "Overdue · " : ""}${stateLabel(e)}</span>
+        </p>
+        <dl class="kv" style="margin-bottom:0.9rem">
+          <dt>What was monitored</dt><dd>${AIQ.param(data, e.parameter).name}</dd>
+          <dt>Where on the lake</dt><dd>${AIQ.zone(data, e.zone)}</dd>
+          <dt>How it was found</dt><dd>${AIQ.source(e.evidence_source)}</dd>
+          <dt>Custody state at the time</dt><dd>${AIQ.custody(e.custody_state)}</dd>
+          <dt>Who has to act</dt><dd>${userName(e.owner)}</dd>
+          ${e.deadline ? `<dt>Action due</dt><dd>${AIQ.date(e.deadline)}${late(e) ? " — passed" : ""}</dd>` : ""}
+          ${enc ? `<dt>Survey number</dt><dd><a href="encroachment.html#${enc.id}">${enc.survey_no}, case ${enc.id}</a></dd>` : ""}
+        </dl>
+        ${e.consequence_if_not_acted === "—" ? "" : `<div class="consequence">
+          <strong>${AIQ.isOpen(e) ? "If this is not acted on" : "Why it was raised"}</strong>
+          ${e.consequence_if_not_acted}</div>`}
+        <p>${e.detail}</p>
+      </div></div>
+
+      <div class="panel" style="margin-top:1.1rem"><h2>What has happened so far</h2><div class="body">
+        <ul class="chain">${chain(e).map(s => `<li class="${s.cls}">
+          <span class="step">${s.step}</span> <span class="when">${s.when}</span><p>${s.text}</p></li>`).join("")}</ul>
+      </div></div>
+
+      <div class="panel" style="margin-top:1.1rem"><h2>Evidence behind it</h2><div class="body">${evidence(e)}</div></div>
+
+      <div class="panel" style="margin-top:1.1rem"><h2>What you can do</h2><div class="body">
+        ${actionPanel(e)}
+        ${e.demo_action
+          ? `<p class="wire-note">Recorded in this browser tab only, at ${AIQ.dateTime(e.demo_action.at)}.
+             It disappears when the page is refreshed. <button type="button" class="linkish" id="undo">Undo</button></p>`
+          : `<p class="wire-note">Decisions taken here live in this browser tab only. Nothing is sent anywhere.</p>`}
+      </div></div>`;
+
     const act = (status, label) => {
       const note = (document.getElementById("reason") || {}).value || "";
       AIQ.actions.record(e.id, { status, label, note, by: "R. Varma, Nodal Officer" });
-      renderList(); select(e.id); renderBanner();
+      renderAll();
     };
     const b1 = document.getElementById("do-act");
-    if (b1) b1.addEventListener("click", () => act("closed", b1.dataset.label));
+    if (b1) b1.addEventListener("click", () => act("closed", e.action || "Decision recorded"));
     const b2 = document.getElementById("do-field");
     if (b2) b2.addEventListener("click", () => act("open", "Sent to the field for a check"));
     const b3 = document.getElementById("do-close");
@@ -248,24 +348,40 @@ const OPEN_STATES = ["open", "verified_action_open", "escalated", "recorded"];
     const u = document.getElementById("undo");
     if (u) u.addEventListener("click", () => {
       const a = AIQ.actions.all(); delete a[e.id];
-      sessionStorage.setItem(AIQ.actions.KEY, JSON.stringify(a));
-      renderList(); select(e.id); renderBanner();
+      try { sessionStorage.setItem(AIQ.actions.KEY, JSON.stringify(a)); } catch (err) {}
+      renderAll();
     });
 
     document.querySelectorAll("#list button").forEach(b =>
-      b.setAttribute("aria-current", b.dataset.id === id));
+      b.setAttribute("aria-current", b.dataset.id === current));
   }
 
-  renderFilters();
-  renderList();
-  renderBanner();
-  if (!allEvents().filter(match).some(e => e.id === current)) { filter = "all"; renderFilters(); renderList(); }
-  select(current);
+  function renderBanner() {
+    const n = AIQ.actions.count();
+    document.getElementById("demo-state").innerHTML = n
+      ? `<span class="dot green"></span> <span class="reason">${n} decision${n > 1 ? "s" : ""} recorded in this tab.
+         <button type="button" class="linkish" id="reset">Reset the demonstration</button></span>`
+      : "";
+    const r = document.getElementById("reset");
+    if (r) r.addEventListener("click", () => { AIQ.actions.clear(); renderAll(); });
+  }
+
+  function renderAll() {
+    /* if nothing is open for this parameter, land on a group that has something */
+    const rows = inParam();
+    if (!rows.filter(match).length) {
+      filter = rows.some(AIQ.isOpen) ? "open" : rows.length ? "settled" : "all";
+    }
+    renderTiles(); renderContext(); renderFilters(); renderList(); renderDetail(); renderBanner();
+  }
+  renderAll();
+
   window.addEventListener("hashchange", () => {
-    const id = location.hash.slice(1);
-    if (rawById[id]) { filter = "all"; renderFilters(); renderList(); select(id); }
+    const q = new URLSearchParams(location.hash.replace(/^#/, ""));
+    const p = q.get("p"), e = q.get("e");
+    if (p && p !== param) { param = p; current = e || null; renderAll(); }
   });
-})();
+});
 </script>
 </body>
 </html>

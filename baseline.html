@@ -10,20 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/aiq.css">
 </head>
-<body>
+<body data-screen="boundary">
 
-<header class="masthead">
-  <div class="wrap">
-    <span class="wordmark">Asset<span>IQ</span></span>
-    <span class="authority" id="authority"></span>
-  </div>
-</header>
-
-<div class="demo-banner">
-  <div class="wrap">Interactive wireframe. The departmental boundaries drawn here are illustrative, not survey products.</div>
-</div>
-
-<main class="wrap">
+<div id="page" class="page">
   <section class="lake-head">
     <div class="row">
       <div>
@@ -74,33 +63,23 @@
     </div>
   </div>
 
-  <a class="backlink" href="lake.html">Back to the lake view</a>
-</main>
-
-<footer class="site">
-  <div class="wrap">
+  <footer class="site">
     <p>Enforcement against encroachment depends on a boundary that exists, is current, and is defensible. Where the boundary is unsettled, every removal action is contestable, and the contest is decided on the quality of the spatial evidence.</p>
     <p id="dataline"></p>
-  </div>
-</footer>
+  </footer>
+</div>
 
 <script src="assets/js/aiq-data.js"></script>
 <script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
 <script>
-(async () => {
-  const data = await aiqLoad().catch(err => { console.error(err); return null; });
-  if (!data) {
-    document.getElementById("sub").textContent = "The demonstration data did not load. Serve this folder over HTTP.";
-    return;
-  }
+AIQShell.boot(async (data) => {
   const a = data.asset, sb = data.spatial_baseline, g = data.geometry;
   const recs = data.departmental_records;
   const rec = id => recs.find(r => r.id === id) || {};
   const role = id => { const u = data.users.find(u => u.id === id); return u ? `${u.name}, ${u.role}` : id; };
   const shown = { "DR-REV": true, "DR-IRR": true, "DR-NOT": false };
   const hasBoundaries = g.record_boundaries && Object.keys(g.record_boundaries).length > 0;
-
-  document.getElementById("authority").textContent = data.authority.name;
   document.getElementById("sub").textContent =
     `${a.display_name} · baseline ${sb.id} accepted ${AIQ.date(sb.accepted_on)} · ${recs.length} departmental records on the same lake`;
   document.getElementById("verdict").innerHTML =
@@ -189,7 +168,7 @@
 
   renderToggles();
   drawPlan();
-})();
+});
 </script>
 </body>
 </html>

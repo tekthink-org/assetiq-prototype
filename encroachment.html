@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Encroachment cases — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body data-screen="encroachment">
+
+<div id="page" class="page">
+  <div class="phead">
+    <div class="row">
+      <div>
+        <h1>Encroachment cases</h1>
+        <p class="sub">Every case runs the same course: detected, verified on the ground, checked against
+          the revenue record, noticed, removed, closed. The survey number is what makes it actionable.</p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </div>
+
+  <dl class="stat-row" id="stats"></dl>
+
+  <div class="two-pane">
+    <div>
+      <div class="filters" id="filters"></div>
+      <ul class="alert-list" id="list"></ul>
+      <p class="wire-note" id="note"></p>
+    </div>
+    <section id="detail"></section>
+  </div>
+
+  <footer class="site">
+    <p id="dataline"></p>
+  </footer>
+</div>
+
+<script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
+<script>
+AIQShell.boot(async (data) => {
+  const C = data.encroachment_cases, S = data.encroachment_summary;
+  const asOf = data.officer_view.as_of.slice(0, 10);
+  const userName = id => { const u = data.users.find(u => u.id === id); return u ? `${u.name}, ${u.role}` : (id || "—"); };
+  let filter = "open";
+  let current = (location.hash || "").replace("#", "") || null;
+
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot ${S.open ? "amber" : "green"}"></span> <span class="reason">${S.open} open, ${S.closed} closed · ` +
+    `${S.inside_ftl_open} open case inside the FTL line</span>`;
+  document.getElementById("note").textContent = S.note;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  document.getElementById("stats").innerHTML = [
+    ["Cases open", S.open, ""],
+    ["Area under encroachment", S.area_open_ac + " ac", "open cases"],
+    ["Area recovered", S.area_recovered_ac + " ac", "closed cases"],
+    ["Inside the FTL", S.inside_ftl_open, "open"],
+    ["Detected by observation", C.filter(c => c.detected_by.indexOf("Drone") === 0).length, "of " + C.length],
+  ].map(([k, v, s]) => `<div class="stat"><dt>${k}</dt><dd>${v}${s ? ` <small>${s}</small>` : ""}</dd></div>`).join("");
+
+  const match = c => filter === "all" ? true : filter === "open" ? c.stage !== "Closed" : c.stage === "Closed";
+  const late = c => c.stage !== "Closed" && c.deadline && c.deadline < asOf;
+
+  function renderFilters() {
+    const F = [["open", "Open", C.filter(c => c.stage !== "Closed").length],
+               ["closed", "Closed", C.filter(c => c.stage === "Closed").length],
+               ["all", "All", C.length]];
+    document.getElementById("filters").innerHTML = F.map(([k, l, n]) =>
+      `<button type="button" data-f="${k}" aria-pressed="${k === filter}">${l} (${n})</button>`).join("");
+    document.querySelectorAll("#filters button").forEach(b => b.addEventListener("click", () => {
+      filter = b.dataset.f; renderList(); renderDetail();
+    }));
+  }
+
+  function renderList() {
+    const rows = C.filter(match);
+    if (!rows.some(c => c.id === current)) current = rows.length ? rows[0].id : null;
+    document.getElementById("list").innerHTML = rows.length ? rows.map(c => `
+      <li><button type="button" data-id="${c.id}" aria-current="${c.id === current}">
+        <span class="t">${c.type}</span>
+        <span class="m">Survey ${c.survey_no} · ${c.area_ac ? c.area_ac + " ac · " : ""}${
+          c.inside_ftl ? "inside the FTL" : "inside the buffer"}</span>
+        <span class="m">${c.stage}${c.deadline && c.stage !== "Closed"
+          ? ` · <span class="${late(c) ? "late" : ""}">due ${AIQ.date(c.deadline)}</span>` : ""}</span>
+      </button></li>`).join("")
+      : `<li><span class="m" style="display:block;padding:0.8rem">Nothing in this group.</span></li>`;
+    document.querySelectorAll("#list button").forEach(b => b.addEventListener("click", () => {
+      current = b.dataset.id; location.replace("#" + current); renderDetail();
+    }));
+  }
+
+  function renderDetail() {
+    const box = document.getElementById("detail");
+    if (!current) { box.innerHTML = ""; return; }
+    const c = C.find(x => x.id === current);
+    const p = AIQ.parcel(data, c.parcel_id);
+    const seg = data.perimeter.segments.find(s => s.id === c.perimeter_segment);
+    const e = data.events.find(x => x.id === c.event);
+    const media = data.media_ledger.filter(m => (c.evidence || []).includes(m.id));
+    const doneN = c.stages.filter(s => s.done).length;
+
+    box.innerHTML = `
+      <div class="panel"><div class="body">
+        <h2 style="font-size:var(--step-1)">${c.id}</h2>
+        <p class="sub" style="margin-bottom:0.8rem">
+          <span class="badge ${c.stage === "Closed" ? "closed" : late(c) ? "late" : "open"}">${
+            late(c) ? "Overdue · " : ""}${c.stage}</span>
+        </p>
+        <dl class="kv">
+          <dt>What was put up</dt><dd>${c.type}</dd>
+          <dt>Survey number</dt><dd><a href="survey.html#${c.parcel_id}">${c.survey_no}</a>${
+            p ? ` — ${p.holder.indexOf("Government") === 0 ? "government land" : "privately held"}` : ""}</dd>
+          <dt>Where</dt><dd>${AIQ.zone(data, c.zone)}${seg ? `, perimeter <a href="perimeter.html#${seg.id}">${seg.id} ${seg.reach}</a>` : ""}</dd>
+          <dt>Extent</dt><dd>${c.area_ac ? `${c.area_ac} ac (${AIQ.num(c.area_m2)} m²)` : c.trees ? `${c.trees} trees` : "—"}</dd>
+          <dt>Relative to the FTL</dt><dd>${c.inside_ftl ? "Inside the FTL line" : "Inside the buffer, outside the FTL"}</dd>
+          <dt>How it was found</dt><dd>${c.detected_by}, ${AIQ.date(c.detected_on)}</dd>
+          <dt>Permission on record</dt><dd>${c.permission_on_record ? "Yes" : "None traced"}</dd>
+          <dt>With</dt><dd>${userName(c.owner)}</dd>
+        </dl>
+      </div></div>
+
+      <div class="panel" style="margin-top:1.1rem">
+        <h2>Case progress <span class="n">— ${doneN} of ${c.stages.length} stages</span></h2>
+        <div class="body"><ul class="steps">${c.stages.map((s, i) => {
+          const now = !s.done && c.stages.slice(0, i).every(x => x.done);
+          return `<li class="${s.done ? "done" : now ? "now" : ""}">
+            <span class="mk">${s.done ? "✓" : ""}</span>
+            <div><span class="s-n">${s.stage}</span>
+              <p class="s-m">${s.done ? `${AIQ.date(s.on)}${s.by ? " · " + s.by : ""}`
+                : now ? "Next step, not done" : "Not reached"}</p></div></li>`;
+        }).join("")}</ul></div>
+      </div>
+
+      ${media.length ? `<div class="panel" style="margin-top:1.1rem"><h2>Evidence</h2><div class="body">
+        <div class="evidence">${media.map(m => `<figure>
+          <div class="frame">${m.role_note || m.kind.replace(/_/g, " ")}</div>
+          <figcaption><span class="who">${userName(m.captured_by).split(",")[0]}</span> · ${AIQ.dateTime(m.captured_at)}<br>
+            Local grid ${m.location[0]}, ${m.location[1]}<br>
+            <span class="hash">SHA-256 ${m.sha256.slice(0, 12)}…</span></figcaption></figure>`).join("")}</div>
+      </div></div>` : ""}
+
+      ${e ? `<div class="panel" style="margin-top:1.1rem"><h2>The alert this came from</h2><div class="body">
+        <p class="wire-note"><a href="alerts.html#p=${e.parameter}&e=${e.id}">${e.title}</a> — ${e.detail}</p>
+      </div></div>` : ""}`;
+
+    document.querySelectorAll("#list button").forEach(b =>
+      b.setAttribute("aria-current", b.dataset.id === current));
+  }
+
+  renderFilters(); renderList(); renderDetail();
+});
+</script>
+</body>
+</html>

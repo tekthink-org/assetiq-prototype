@@ -10,20 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/aiq.css">
 </head>
-<body>
+<body data-screen="overview">
 
-<header class="masthead">
-  <div class="wrap">
-    <span class="wordmark">Asset<span>IQ</span></span>
-    <span class="authority" id="authority"></span>
-  </div>
-</header>
-
-<div class="demo-banner">
-  <div class="wrap">Interactive wireframe. Every lake, person, record and figure here is invented.</div>
-</div>
-
-<main class="wrap">
+<div id="page" class="page">
   <section class="lake-head">
     <div class="row">
       <div>
@@ -103,30 +92,25 @@
     </div>
   </div>
 
-  <a class="backlink" href="index.html">Back to the screen list</a>
-</main>
-
-<footer class="site">
-  <div class="wrap">
+  <footer class="site">
     <p>Every figure on this page traces back to a survey, a sensor reading, a laboratory report or a field entry with a photograph, a location and a timestamp.</p>
     <p id="dataline"></p>
-  </div>
-</footer>
+  </footer>
+</div>
 
 <script src="assets/js/aiq-data.js"></script>
 <script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
 <script>
-(async () => {
-  try {
-    const data = await aiqLoad();
+AIQShell.boot(async (data) => {
     const a = data.asset, ov = data.officer_view, works = data.restoration_works;
     const byId = Object.fromEntries(data.events.map(e => [e.id, AIQ.withAction(e)]));
     const settled = id => !["open", "verified_action_open", "escalated", "recorded"].includes(byId[id].status);
-
-    document.getElementById("authority").textContent = data.authority.name;
     document.getElementById("lake-name").textContent = a.display_name;
     document.getElementById("lake-sub").textContent =
-      `${a.ftl_area_ha} ha at full tank level · ${a.zone}, ${a.circle} · ${AIQ.custody(a.custody_state)} · as at ${AIQ.dateTime(ov.as_of)}`;
+      `${AIQ.custody(a.custody_state)} since ${AIQ.date(data.custody_history.at(-1).date)} · ` +
+      `survey ${data.survey_parcels[0].survey_no}, ${data.survey_summary.village} · ` +
+      `perimeter ${AIQ.num(data.perimeter.total_m)} m, ${data.perimeter.fenced_m} m fenced`;
     document.getElementById("verdict").innerHTML =
       `<span class="dot ${ov.overall_status}"></span> <span class="reason">${ov.status_reason}</span>`;
 
@@ -138,8 +122,23 @@
       `C-01 on the north bank: ${fill.title.toLowerCase()}, found by the drone pass of ${AIQ.date(data.observation_passes[1].date)}. Monitoring station SN-WQ1 sits beside Inlet 2, where the August sewage inflow entered.`;
 
     /* condition */
-    document.getElementById("indicators").innerHTML = ov.indicators.map(i =>
-      `<div><p class="k"><span class="dot ${i.status}"></span>${i.label}</p><p class="v">${i.text}</p></div>`).join("");
+    /* each indicator opens the parameter behind it, so the overview is a way in
+       rather than a dead end */
+    const IND_TO = {
+      "Boundary": "alerts.html#p=boundary",
+      "Water quality": "alerts.html#p=water_quality",
+      "Water level": "alerts.html#p=flood",
+      "Restoration": "works.html",
+      "Structures": "perimeter.html",
+      "Ecology": "alerts.html#p=ecology",
+      "Monitoring": "alerts.html#p=monitoring",
+      "Compliance": "compliance.html",
+    };
+    document.getElementById("indicators").innerHTML = ov.indicators.map(i => {
+      const href = IND_TO[i.label];
+      const inner = `<p class="k"><span class="dot ${i.status}"></span>${i.label}</p><p class="v">${i.text}</p>`;
+      return href ? `<a href="${href}">${inner}</a>` : `<div>${inner}</div>`;
+    }).join("");
 
     /* decisions */
     const overdue = ov.overdue.filter(id => !settled(id));
@@ -202,13 +201,7 @@
       `${c.draft_status.replace(/_/g, " ")}</p></li>`).join("");
 
     document.getElementById("dataline").textContent = data.meta.disclaimer;
-  } catch (err) {
-    document.getElementById("lake-name").textContent = "The demonstration data did not load";
-    document.getElementById("lake-sub").textContent =
-      "Serve this folder over HTTP (python3 -m http.server 8080) rather than opening the file directly.";
-    console.error(err);
-  }
-})();
+});
 </script>
 </body>
 </html>

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Lake lifecycle — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body data-screen="lifecycle">
+
+<div id="page" class="page">
+  <div class="phead">
+    <div class="row">
+      <div>
+        <h1>Lake lifecycle</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </div>
+
+  <div class="note-box" id="note"></div>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Custody stages</h2>
+      <div class="body"><ul class="steps" id="stages"></ul></div>
+    </section>
+
+    <div class="stack">
+      <section class="panel" id="gate"></section>
+
+      <section class="panel">
+        <h2>Two lifecycles, not one</h2>
+        <div class="body">
+          <p>The lake has a custody state that lasts for as long as the lake does. A restoration works
+             project has its own stages and then ends. Confusing them is how a lake gets treated as
+             finished because a contract closed.</p>
+          <table class="reg">
+            <thead><tr><th></th><th>The lake</th><th>The works project</th></tr></thead>
+            <tbody>
+              <tr><td>Runs</td><td>Indefinitely</td><td>From work order to final bill</td></tr>
+              <tr><td>Now at</td><td id="lc-now"></td><td id="lc-works"></td></tr>
+              <tr><td>Ends when</td><td>Never; it moves between states</td><td>Works closed and taken over</td></tr>
+              <tr><td>Owner</td><td>The custodian authority</td><td>The executing division and contractor</td></tr>
+            </tbody>
+          </table>
+          <p class="wire-note">This is why restoration progress does not move the custody state on its own.
+             Works can reach 100% with the perimeter still open.</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Where this lake sits against the wider position</h2>
+        <div class="body">
+          <p>The reason the notification stages matter: as reported to the High Court in January 2025,
+             preliminary notifications had been issued for 2,793 of 3,342 water bodies within HMDA limits,
+             but final notifications for only 765.</p>
+          <p class="wire-note">Those figures are HMDA's and relate to HMDA limits, not to HYDRA's
+             jurisdiction, and the position will have moved since. They are cited only to make the point
+             that the gap between stage 2 and stage 3 is where most water bodies sit, and enforcement is
+             weak until a lake crosses it.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="site">
+    <p id="dataline"></p>
+  </footer>
+</div>
+
+<script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
+<script>
+AIQShell.boot(async (data) => {
+  const LC = data.lifecycle;
+  const reached = LC.stages.filter(s => s.reached_on).length;
+  const currentIdx = LC.stages.findIndex(s => s.key === LC.current);
+  let sel = currentIdx;
+
+  document.getElementById("sub").textContent =
+    `${data.asset.display_name} · stage ${reached} of ${LC.stages.length} · ` +
+    `${AIQ.custody(LC.current)} since ${AIQ.date(LC.stages[currentIdx].reached_on)}`;
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot amber"></span> <span class="reason">Not yet protected and monitored</span>`;
+  document.getElementById("note").innerHTML = `<p>${LC.note}</p>`;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  document.getElementById("lc-now").textContent = AIQ.custody(LC.current);
+  const pr = data.restoration_works.precomputed_progress;
+  document.getElementById("lc-works").textContent =
+    `${data.restoration_works.stage.charAt(0).toUpperCase() + data.restoration_works.stage.slice(1)}, ${pr.overall_pct}%`;
+
+  function renderStages() {
+    document.getElementById("stages").innerHTML = LC.stages.map((s, i) => {
+      const done = Boolean(s.reached_on);
+      const now = i === currentIdx;
+      return `<li class="${done ? "done" : i === currentIdx + 1 ? "now" : ""}" data-i="${i}" style="cursor:pointer;${
+        i === sel ? "background:var(--water-tint);" : ""}">
+        <span class="mk">${done ? "✓" : ""}</span>
+        <div><span class="s-n">${i + 1}. ${s.name}${now ? " — current" : ""}</span>
+          <p class="s-m">${s.meaning}</p>
+          <p class="s-m">${done ? `Reached ${AIQ.date(s.reached_on)} · ${s.evidence}` : "Not reached"}</p></div></li>`;
+    }).join("");
+    document.querySelectorAll("#stages li").forEach(li => li.addEventListener("click", () => {
+      sel = +li.dataset.i; renderStages(); renderGate();
+    }));
+  }
+
+  function renderGate() {
+    const s = LC.stages[sel];
+    const done = Boolean(s.reached_on);
+    document.getElementById("gate").innerHTML = `
+      <h2>${s.name} <span class="n">— the gate</span></h2>
+      <div class="body">
+        <p><strong>What this stage means.</strong> ${s.meaning}</p>
+        <p><strong>What has to be true to reach it.</strong> ${s.gate}</p>
+        ${done
+          ? `<div class="taken"><strong>Reached ${AIQ.date(s.reached_on)}</strong><p>${s.evidence}</p></div>`
+          : `<div class="guard"><strong>Not reached.</strong> ${s.blockers
+              ? "Each of these has to close first:" : "The preceding stage has not been passed."}</div>
+             ${s.blockers ? `<ul class="bul">${s.blockers.map(b => `<li>${b}</li>`).join("")}</ul>` : ""}
+             ${s.blockers ? `<p class="wire-note">Three of the four are visible elsewhere in this view:
+                <a href="works.html">restoration progress</a>, <a href="perimeter.html">the perimeter</a>,
+                <a href="encroachment.html">the open case</a> and
+                <a href="baseline.html">the record dispute</a>.</p>` : ""}`}
+      </div>`;
+  }
+
+  renderStages(); renderGate();
+});
+</script>
+</body>
+</html>

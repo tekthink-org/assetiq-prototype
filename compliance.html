@@ -10,20 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/aiq.css">
 </head>
-<body>
+<body data-screen="compliance">
 
-<header class="masthead">
-  <div class="wrap">
-    <span class="wordmark">Asset<span>IQ</span></span>
-    <span class="authority" id="authority"></span>
-  </div>
-</header>
-
-<div class="demo-banner">
-  <div class="wrap">Interactive wireframe. The drafts below are assembled from the same demonstration data the field team entered.</div>
-</div>
-
-<main class="wrap">
+<div id="page" class="page">
   <section class="lake-head">
     <div class="row">
       <div>
@@ -58,24 +47,17 @@
     </section>
   </div>
 
-  <a class="backlink" href="lake.html">Back to the lake view</a>
-</main>
-
-<footer class="site">
-  <div class="wrap">
+  <footer class="site">
     <p>The field team enters observable facts once, with evidence attached. Each authority's submission is the same dataset under a different template.</p>
     <p id="dataline"></p>
-  </div>
-</footer>
+  </footer>
+</div>
 
 <script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
 <script>
-(async () => {
-  const data = await aiqLoad().catch(err => { console.error(err); return null; });
-  if (!data) {
-    document.getElementById("sub").textContent = "The demonstration data did not load. Serve this folder over HTTP.";
-    return;
-  }
+AIQShell.boot(async (data) => {
   const a = data.asset, works = data.restoration_works;
   const byId = Object.fromEntries(data.events.map(e => [e.id, AIQ.withAction(e)]));
   const doSeries = AIQ.daily(data, "SN-WQ1", "do_mg_l", "min");
@@ -83,8 +65,6 @@
   const labFlag = data.lab_reports.find(r => r.flag === "above_limit");
   const sampled = data.lab_reports.length;
   const photos = data.media_ledger.length;
-
-  document.getElementById("authority").textContent = data.authority.name;
   document.getElementById("sub").textContent =
     `${a.display_name} · three authorities, one underlying record · as at ${AIQ.dateTime(data.officer_view.as_of)}`;
   document.getElementById("dataline").textContent = data.meta.disclaimer;
@@ -215,7 +195,7 @@
   document.getElementById("reset-draft").addEventListener("click", clearDraft);
   renderTargets();
   renderHead();
-})();
+});
 </script>
 </body>
 </html>

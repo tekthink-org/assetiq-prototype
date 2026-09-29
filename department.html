@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Department view — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body data-screen="department">
+
+<div id="page" class="page">
+  <div class="phead">
+    <div class="row">
+      <div>
+        <h1>Department view</h1>
+        <p class="sub">One lake, five departments, five different records. This is what each one holds,
+          what is being asked of it, and by when — so the asking is on the record rather than in a phone call.</p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </div>
+
+  <dl class="stat-row" id="stats"></dl>
+
+  <section class="panel" style="margin-bottom:1.1rem">
+    <h2>What each department holds and owes</h2>
+    <div class="scroll-x"><table class="reg" id="depts"></table></div>
+    <div class="body"><p class="wire-note" id="dnote"></p></div>
+  </section>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Where the records disagree</h2>
+      <div class="body" id="disc"></div>
+    </section>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>The agreed position</h2>
+        <div class="body">
+          <svg id="plan"></svg>
+          <p class="caption" id="cap"></p>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>What this view deliberately leaves out</h2>
+        <div class="body">
+          <p>A department needs the agreed boundary, the survey position and the question being put to it.
+             It does not need the internal alert stream or a draft notice that has not been signed.</p>
+          <ul class="plain" id="omits"></ul>
+          <p class="wire-note">Switch the view at the top right to see the difference between the officer
+             view and this one.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="site">
+    <p id="dataline"></p>
+  </footer>
+</div>
+
+<script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
+<script>
+AIQShell.boot(async (data) => {
+  const DV = data.department_view, asOf = data.officer_view.as_of.slice(0, 10);
+  const overdue = DV.departments.filter(d => d.status === "Overdue");
+
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot ${overdue.length ? "amber" : "green"}"></span> <span class="reason">${
+      overdue.length} of ${DV.departments.length} departments overdue on what was asked</span>`;
+  document.getElementById("dnote").textContent = DV.note;
+  document.getElementById("dataline").textContent = data.meta.disclaimer;
+
+  const withRec = DV.departments.filter(d => d.record);
+  const spread = Math.max(...withRec.map(d => d.area_ha)) - Math.min(...withRec.map(d => d.area_ha));
+  document.getElementById("stats").innerHTML = [
+    ["Departments involved", DV.departments.length, ""],
+    ["Holding a spatial record", withRec.length, ""],
+    ["Spread between records", spread.toFixed(1) + " ha", "on the same lake"],
+    ["Accepted baseline", data.spatial_baseline.ftl_area_ha + " ha", AIQ.date(data.spatial_baseline.accepted_on)],
+    ["Asks overdue", overdue.length, ""],
+  ].map(([k, v, s]) => `<div class="stat"><dt>${k}</dt><dd>${v}${s ? ` <small>${s}</small>` : ""}</dd></div>`).join("");
+
+  document.getElementById("depts").innerHTML =
+    `<thead><tr><th>Department</th><th>What it holds</th><th>On record</th><th>What is asked</th><th>Due</th><th>State</th></tr></thead><tbody>` +
+    DV.departments.map(d => {
+      const late = d.status === "Overdue";
+      return `<tr class="${late ? "" : ""}">
+        <td><strong>${d.name}</strong><br><span class="wire-note" style="margin:0">${d.contact}</span></td>
+        <td>${d.holds}</td>
+        <td>${d.area_ha ? d.area_ha + " ha" : "—"}</td>
+        <td>${d.asked}</td>
+        <td>${AIQ.date(d.due)}</td>
+        <td>${late ? `<span class="badge late">Overdue</span>`
+          : d.status.indexOf("Confirmed") === 0 ? `<span class="badge closed">${d.status}</span>`
+          : `<span class="badge">${d.status}</span>`}</td></tr>`;
+    }).join("") + `</tbody>`;
+
+  document.getElementById("disc").innerHTML = data.record_discrepancies.map(d => `
+    <div style="border-top:1px solid var(--line-2);padding-top:0.7rem;margin-top:0.7rem">
+      <p class="title" style="font-weight:600;margin:0">${d.subject}</p>
+      <p class="wire-note" style="margin-top:0.15rem">${d.difference}</p>
+      <p class="wire-note"><strong>Our position:</strong> ${d.baseline_position}</p>
+      <p class="wire-note">
+        <span class="badge ${d.status === "escalated_for_ruling" ? "open" : "closed"}">${d.status.replace(/_/g, " ")}</span>
+        ${d.ruling ? `· ${d.ruling}` : d.ruling_due ? `· ruling due ${AIQ.date(d.ruling_due)}` : ""}</p>
+    </div>`).join("") +
+    `<p class="wire-note" style="margin-top:0.9rem">Differences are documented and referred for a ruling,
+      not resolved quietly by us. The authority decides which record governs, and that decision is recorded.
+      The full register is on <a href="baseline.html">boundary and records</a>.</p>`;
+
+  AIQMap.draw(document.getElementById("plan"), data, {
+    title: "Boundary as accepted", mapRef: "AIQ-L01-02",
+    asAt: AIQ.date(data.officer_view.as_of), acceptedOn: AIQ.date(data.spatial_baseline.accepted_on),
+    waterDate: "Sept 2026", overlays: ["DR-REV", "DR-IRR"], sensors: false, changes: false,
+  });
+  document.getElementById("cap").innerHTML =
+    `Accepted boundary solid, ${data.spatial_baseline.ftl_area_ha} ha. Departmental records dashed. ` +
+    `<span class="wire-note">${data.geometry.record_boundaries_note}</span>`;
+
+  const omit = (data.roles.find(r => r.key === "department") || {}).sees || "";
+  document.getElementById("omits").innerHTML = [
+    ["Unverified alerts", "A reading that no one has checked is not a finding, and circulating it starts arguments the data cannot settle."],
+    ["Draft notices", "Pre-decisional. It has not been signed and may never be."],
+    ["Names of holders and complainants", "Personal information; it belongs in the case file, not a shared view."],
+    ["Internal correspondence", "Not the department's to see unless it is addressed to them."],
+  ].map(([t, w]) => `<li><strong>${t}.</strong> ${w}</li>`).join("");
+});
+</script>
+</body>
+</html>

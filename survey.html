@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Survey numbers — AssetIQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/aiq.css">
+</head>
+<body data-screen="survey">
+
+<div id="page" class="page">
+  <div class="phead">
+    <div class="row">
+      <div>
+        <h1>Survey numbers</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <p class="verdict" id="verdict"></p>
+    </div>
+  </div>
+
+  <dl class="stat-row" id="stats"></dl>
+
+  <div class="cols">
+    <section class="panel">
+      <h2>Parcels against the boundary</h2>
+      <div class="body">
+        <svg id="plan"></svg>
+        <p class="caption" id="cap"></p>
+      </div>
+    </section>
+
+    <div class="stack">
+      <section class="panel">
+        <h2>The village account <span class="n">— click a row to locate it</span></h2>
+        <div class="scroll-x"><table class="reg" id="reg"></table></div>
+        <div class="body"><p class="wire-note" id="regnote"></p></div>
+      </section>
+
+      <section class="panel" id="detail"></section>
+
+      <section class="panel">
+        <h2>Why the survey number matters</h2>
+        <div class="body">
+          <ul class="plain">
+            <li><strong>It is how the revenue record is organised.</strong> A boundary drawn on a map means
+              little to a tahsildar until it is expressed as a survey number and an extent.</li>
+            <li><strong>It names who has to answer.</strong> An encroachment on patta land involves a holder;
+              the same act on government poramboke involves the department that let it happen.</li>
+            <li><strong>It decides the remedy.</strong> Removal, regularisation, acquisition and prosecution
+              are different routes, and the classification of the parcel is what selects between them.</li>
+            <li><strong>It survives the argument.</strong> A notice that cites a survey number and an extent
+              stands up where a photograph and a map do not.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="site">
+    <p id="dataline"></p>
+  </footer>
+</div>
+
+<script src="assets/js/aiq-data.js"></script>
+<script src="assets/js/aiq-map.js"></script>
+<script src="assets/js/aiq-shell.js"></script>
+<script>
+AIQShell.boot(async (data) => {
+  const S = data.survey_summary, P = data.survey_parcels;
+  let current = (location.hash || "").replace("#", "") || P[0].id;
+  if (!P.some(p => p.id === current)) current = P[0].id;
+
+  document.getElementById("sub").textContent =
+    `${S.village}, ${S.mandal} · ${S.parcels} parcels reconciled against baseline ${data.spatial_baseline.id}`;
+  const enc = data.encroachment_summary;
+  document.getElementById("verdict").innerHTML =
+    `<span class="dot ${enc.open ? "amber" : "green"}"></span> <span class="reason">${
+      enc.open ? `${enc.open} parcel${enc.open > 1 ? "s" : ""} carrying an open encroachment case` : "No open case on any parcel"}</span>`;
+  document.getElementById("dataline").textContent = S.note + " " + data.meta.disclaimer;
+
+  document.getElementById("stats").innerHTML = [
+    ["Parcels", S.parcels, ""],
+    ["Government held", S.government_ac + " ac", ""],
+    ["Privately held", S.private_ac + " ac", ""],
+    ["Adjoining the buffer", S.parcels_adjoining_buffer, "parcels"],
+    ["Tank bed", P[0].extent_ac + " ac", "survey 112"],
+  ].map(([k, v, s]) => `<div class="stat"><dt>${k}</dt><dd>${v}${s ? ` <small>${s}</small>` : ""}</dd></div>`).join("");
+
+  function draw() {
+    AIQMap.draw(document.getElementById("plan"), data, {
+      title: "Survey numbers", mapRef: "AIQ-L01-03",
+      asAt: AIQ.date(data.officer_view.as_of), acceptedOn: AIQ.date(data.spatial_baseline.accepted_on),
+      waterDate: "Sept 2026", parcels: true, highlightParcel: current, sensors: false, changes: false,
+    });
+    const p = P.find(x => x.id === current);
+    document.getElementById("cap").innerHTML =
+      `Survey <strong>${AIQ.sn(p)}</strong> outlined in red. Parcel geometry is illustrative and drawn on a
+       synthetic local grid; in a live deployment it comes from the village map reconciled against the survey baseline.`;
+  }
+
+  function renderTable() {
+    document.getElementById("reg").innerHTML =
+      `<thead><tr><th>Survey no.</th><th>Classification</th><th>Extent</th><th>Position</th><th>State</th></tr></thead><tbody>` +
+      P.map(p => {
+        const govt = p.holder.indexOf("Government") === 0;
+        const bad = p.status.indexOf("encroachment recorded") === 0;
+        return `<tr data-id="${p.id}" style="cursor:pointer" class="${p.id === current ? "accepted" : (bad ? "" : "")}">
+          <td><strong>${AIQ.sn(p)}</strong></td>
+          <td>${govt ? "Government" : "Patta (private)"}<br><span class="wire-note" style="margin:0">${p.classification.replace(/^.*— /, "")}</span></td>
+          <td>${p.extent_ac} ac</td>
+          <td>${p.position}</td>
+          <td>${bad ? `<span class="badge late">Encroachment</span>` :
+                p.status.indexOf("cleared") === 0 ? `<span class="badge closed">Cleared</span>` :
+                `<span class="badge">${p.status.charAt(0).toUpperCase() + p.status.slice(1)}</span>`}</td></tr>`;
+      }).join("") + `</tbody>`;
+    document.querySelectorAll("#reg tbody tr").forEach(r => r.addEventListener("click", () => {
+      current = r.dataset.id; location.replace("#" + current); renderAll();
+    }));
+    document.getElementById("regnote").textContent =
+      `${S.buffer_note} The tank bed itself is survey ${P[0].survey_no}, classified as a water body ` +
+      `and not assignable.`;
+  }
+
+  function renderDetail() {
+    const p = P.find(x => x.id === current);
+    const govt = p.holder.indexOf("Government") === 0;
+    const cases = (data.encroachment_cases || []).filter(c => c.parcel_id === p.id);
+    const amen = (data.beautification.candidates || []).filter(c => c.parcel_id === p.id);
+    document.getElementById("detail").innerHTML = `
+      <h2>Survey ${AIQ.sn(p)}</h2>
+      <div class="body">
+        <dl class="kv" style="margin-bottom:0.8rem">
+          <dt>Village</dt><dd>${p.village}</dd>
+          <dt>Mandal</dt><dd>${p.mandal}</dd>
+          <dt>Classification</dt><dd>${p.classification}</dd>
+          <dt>Held by</dt><dd>${p.holder}</dd>
+          <dt>Extent on record</dt><dd>${p.extent_ac} ac</dd>
+          <dt>Inside the FTL</dt><dd>${p.within_ftl_ac ? p.within_ftl_ac + " ac" : "None"}</dd>
+          <dt>Inside the buffer</dt><dd>${p.within_buffer_ac ? p.within_buffer_ac + " ac" : "None — the parcel begins beyond it"}</dd>
+          <dt>Position</dt><dd>${p.position === "the tank bed" ? "The tank bed" : p.position.charAt(0).toUpperCase() + p.position.slice(1) + " of the lake"}</dd>
+        </dl>
+        ${p.note ? `<div class="${cases.length && cases.some(c => c.stage !== "Closed") ? "guard" : "note-box"}">${p.note}</div>` : ""}
+        ${cases.length ? `<h3>Cases on this parcel</h3><ul class="events">${cases.map(c => `
+          <li><p class="title"><a href="encroachment.html#${c.id}">${c.id} — ${c.type}</a></p>
+            <p class="meta">${c.area_ac ? c.area_ac + " ac · " : ""}${c.inside_ftl ? "inside the FTL" : "inside the buffer"}
+              · detected ${AIQ.date(c.detected_on)} · <strong>${c.stage}</strong></p></li>`).join("")}</ul>`
+          : `<p class="wire-note">No encroachment case recorded on this parcel.</p>`}
+        ${amen.length ? `<h3 style="margin-top:0.9rem">Amenity assessment</h3>${amen.map(a =>
+          `<p class="wire-note"><a href="amenity.html#${a.id}">${a.id}</a> — ${a.verdict}. ${a.note}</p>`).join("")}` : ""}
+      </div>`;
+  }
+
+  function renderAll() { draw(); renderTable(); renderDetail(); }
+  renderAll();
+  window.addEventListener("hashchange", () => {
+    const h = location.hash.replace("#", "");
+    if (h && P.some(p => p.id === h) && h !== current) { current = h; renderAll(); }
+  });
+});
+</script>
+</body>
+</html>
