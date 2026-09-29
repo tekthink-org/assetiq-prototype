@@ -1,7 +1,7 @@
 /* AssetIQ prototype — data loading and shared helpers.
    All data is fictitious. Coordinates are a local metre grid, not lat/long. */
 
-const AIQ_DATA_URL = "data/aiq_demo_data_v0.1.json";
+const AIQ_DATA_URL = "data/aiq_demo_data_v0.2.json";
 
 let _cache = null;
 
@@ -50,6 +50,31 @@ const AIQ = {
     return z ? z.name : id;
   },
 
+
+
+  /* ---- v0.2 helpers -------------------------------------------------- */
+  param(data, key) { return (data.parameters || []).find(p => p.key === key) || { key, name: key }; },
+  parcel(data, id) { return (data.survey_parcels || []).find(p => p.id === id); },
+  /* A survey number as it would be written on a record: 115/2 */
+  sn(p) { return p.subdivision ? `${p.survey_no}/${p.subdivision}` : p.survey_no; },
+  num(n) { return Number(n).toLocaleString("en-IN"); },
+  /* Events for one monitoring parameter, with any demo decision applied. */
+  byParam(data, key) {
+    return data.events.map(AIQ.withAction).filter(e => e.parameter === key);
+  },
+  isOpen(e) { return ["open", "verified_action_open", "escalated", "recorded"].includes(e.status); },
+  isLate(e, asOf) { return Boolean(e.deadline && e.deadline < asOf && AIQ.isOpen(e)); },
+  /* Health of one parameter, for the tiles and the overview. */
+  health(data, key) {
+    const asOf = data.officer_view.as_of.slice(0, 10);
+    const ev = AIQ.byParam(data, key);
+    const open = ev.filter(AIQ.isOpen);
+    const late = open.filter(e => AIQ.isLate(e, asOf));
+    return {
+      total: ev.length, open: open.length, late: late.length,
+      status: late.length ? "red" : open.length ? "amber" : "green",
+    };
+  },
 
   /* --- demo session state -------------------------------------------------
      Decisions taken in the wireframe live in sessionStorage only: they are

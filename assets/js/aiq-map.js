@@ -13,7 +13,10 @@
     ftl: "#1f3a5f", buffer: "#c49a5c", bufferFill: "#f6ead6",
     catch: "#eef2ee", catchEdge: "#8ea39a", bund: "#6b5a45",
     struct: "#1b2a30", sensor: "#0e6e73", change: "#b3261e",
-    rev: "#8e4585", irr: "#b0701a", not: "#2e6d4c", paper: "#ffffff", band: "#f7f9f8", bed: "#eeece0"
+    rev: "#8e4585", irr: "#b0701a", not: "#2e6d4c",
+    govt: "#5b7f6a", govtFill: "#e9f0ea", patta: "#9a6b3f", pattaFill: "#f6eee3",
+    parcelLine: "#7d8f86", segFair: "#2c6b45", segRisk: "#a65b00", segBad: "#94261f",
+    amen: "#2a6f7d", amenNo: "#94261f", paper: "#ffffff", band: "#f7f9f8", bed: "#eeece0"
   };
   const FALSE_E = 10000, FALSE_N = 20000;   // keeps grid labels positive
 
@@ -24,6 +27,10 @@
     return n;
   }
   const pts = (arr, T) => arr.map(p => T(p).join(",")).join(" ");
+  const centroidOf = poly => [
+    poly.slice(0, -1).reduce((a, p) => a + p[0], 0) / (poly.length - 1),
+    poly.slice(0, -1).reduce((a, p) => a + p[1], 0) / (poly.length - 1)];
+  const snOf = pc => pc.subdivision ? pc.survey_no + "/" + pc.subdivision : pc.survey_no;
 
   function drawMap(svg, data, opts = {}) {
     const g = data.geometry, a = data.asset;
@@ -37,7 +44,7 @@
     svg.style.width = "100%"; svg.style.height = "auto"; svg.style.display = "block";
 
     /* ---------- transform: fit the asset (buffer + margin) into the frame */
-    const ext = g.buffer_outer_boundary;
+    const ext = opts.parcels ? (data.survey_parcels || []).reduce((a, p) => a.concat(p.polygon), []) : g.buffer_outer_boundary;
     const pad = opts.pad || 150;
     let minX = Math.min(...ext.map(p => p[0])) - pad, maxX = Math.max(...ext.map(p => p[0])) + pad;
     let minY = Math.min(...ext.map(p => p[1])) - pad, maxY = Math.max(...ext.map(p => p[1])) + pad;
@@ -77,11 +84,102 @@
     for (let y = Math.ceil(minY / step) * step; y <= maxY; y += step)
       map.appendChild(el("line", { x1: F.x, x2: F.x + F.w, y1: T([0, y])[1], y2: T([0, y])[1], stroke: C.grid, "stroke-width": 0.6 }));
 
+    /* survey parcels — drawn under the hydrography so the water reads first */
+    if (opts.parcels) {
+      (data.survey_parcels || []).forEach(pc => {
+        const govt = pc.holder.indexOf("Government") === 0;
+        const hot = opts.highlightParcel && pc.id === opts.highlightParcel;
+        map.appendChild(el("polygon", {
+          points: pts(pc.polygon, T),
+          fill: pc.id === "SN-112" ? "none" : (govt ? C.govtFill : C.pattaFill),
+          stroke: hot ? C.change : C.parcelLine,
+          "stroke-width": hot ? 2.2 : 0.9,
+          "stroke-dasharray": hot ? "none" : "3 2"
+        }));
+      });
+      (data.survey_parcels || []).forEach(pc => {
+        if (pc.id === "SN-112") return;
+        /* push the label outward from the lake centre so it clears the water */
+        const c = centroidOf(pc.polygon);
+        const m = Math.hypot(c[0], c[1]) || 1;
+        const out = [c[0] * 1.13, c[1] * 1.13];
+        const [X, Y] = T(out);
+        const lab = snOf(pc), col = pc.holder.indexOf("Government") === 0 ? C.govt : C.patta;
+        map.appendChild(el("rect", {
+          x: X - lab.length * 3.1 - 3, y: Y - 8, width: lab.length * 6.2 + 6, height: 12,
+          rx: 2, fill: C.paper, stroke: col, "stroke-width": 0.7, opacity: 0.92
+        }));
+        map.appendChild(el("text", {
+          x: X, y: Y + 1.5, "text-anchor": "middle", "font-size": 9.5, "font-family": FONT,
+          "font-weight": 600, fill: col
+        }, lab));
+      });
+    }
+
     /* buffer, water, FTL */
     map.appendChild(el("polygon", { points: pts(g.buffer_outer_boundary, T), fill: `url(#${uid}buf)`, stroke: C.buffer, "stroke-width": 0.8 }));
     map.appendChild(el("polygon", { points: pts(g.ftl_boundary, T), fill: C.bed, stroke: "none" }));
     map.appendChild(el("polygon", { points: pts(g.water_spread_current, T), fill: C.water, stroke: C.waterEdge, "stroke-width": 0.8 }));
     map.appendChild(el("polygon", { points: pts(g.ftl_boundary, T), fill: "none", stroke: C.ftl, "stroke-width": 1.9 }));
+
+    /* perimeter segments, coloured by condition */
+    if (opts.perimeter && data.perimeter) {
+      const ring0 = g.ftl_boundary, total = data.perimeter.total_m;
+      /* Chainage 0 is the south-west end of the bund, so P-01 lands on the bund.
+         Rotate the ring to start at the vertex nearest that point. */
+      const bundSeg = (g.structures || []).find(x => x.type === "bund");
+      const origin = bundSeg ? bundSeg.line[0] : ring0[0];
+      let best = 0, bestD = Infinity;
+      for (let i = 0; i < ring0.length - 1; i++) {
+        const d = Math.hypot(ring0[i][0] - origin[0], ring0[i][1] - origin[1]);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+      const body = ring0.slice(0, -1);
+      const ring = body.slice(best).concat(body.slice(0, best));
+      ring.push(ring[0]);
+      let run = 0;
+      const marks = [];
+      for (let i = 0; i < ring.length - 1; i++) {
+        const d = Math.hypot(ring[i + 1][0] - ring[i][0], ring[i + 1][1] - ring[i][1]);
+        marks.push({ from: run, to: run + d, a: ring[i], b: ring[i + 1] });
+        run += d;
+      }
+      const scaleF = total / run;
+      data.perimeter.segments.forEach(seg => {
+        const col = seg.condition === "At risk" ? C.segRisk : C.segFair;
+        const hot = opts.highlightSegment && opts.highlightSegment === seg.id;
+        const line = marks.filter(m => m.from * scaleF < seg.to_m && m.to * scaleF > seg.from_m);
+        if (!line.length) return;
+        map.appendChild(el("polyline", {
+          points: line.map(m => T(m.a).join(",")).concat([T(line[line.length - 1].b).join(",")]).join(" "),
+          fill: "none", stroke: col, "stroke-width": hot ? 6 : 3.6,
+          "stroke-linecap": "round", opacity: hot ? 1 : 0.9,
+          "stroke-dasharray": seg.fenced ? "none" : "10 5"
+        }));
+        const mid = line[Math.floor(line.length / 2)], [X, Y] = T(mid.a);
+        map.appendChild(el("text", {
+          x: X, y: Y - 8, "text-anchor": "middle", "font-size": 10, "font-weight": 600,
+          "font-family": FONT, fill: col
+        }, seg.id));
+      });
+    }
+
+    /* amenity candidates */
+    if (opts.amenity && data.beautification) {
+      /* outline colour carries the verdict; the survey number already labels the
+         parcel, so no second label is added */
+      data.beautification.candidates.forEach(cand => {
+        const pc = (data.survey_parcels || []).find(x => x.id === cand.parcel_id);
+        if (!pc) return;
+        const ok = cand.verdict === "Meets every check";
+        const no = cand.verdict === "Not a candidate" || cand.verdict.indexOf("Blocked until") === 0;
+        map.appendChild(el("polygon", {
+          points: pts(pc.polygon, T), fill: "none",
+          stroke: no ? C.amenNo : ok ? C.amen : C.parcelLine,
+          "stroke-width": ok ? 3 : 2, "stroke-dasharray": ok ? "none" : "6 4"
+        }));
+      });
+    }
 
     /* departmental record overlays */
     const OV = { "DR-REV": C.rev, "DR-IRR": C.irr, "DR-NOT": C.not };
@@ -185,6 +283,19 @@
       ["inlet", "Inlet, direction of flow"],
       ["struct", "Sluice ▪ / surplus weir ▲"]
     ];
+    if (opts.parcels) {
+      items.push(["govt", "Survey parcel — government"]);
+      items.push(["patta", "Survey parcel — patta (private)"]);
+    }
+    if (opts.perimeter) {
+      items.push(["segfair", "Perimeter — fair"]);
+      items.push(["segrisk", "Perimeter — at risk"]);
+      items.push(["segfence", "Solid line = fenced"]);
+    }
+    if (opts.amenity) {
+      items.push(["amen", "Meets every check"]);
+      items.push(["amenno", "Excluded — FTL, buffer or open case"]);
+    }
     if (opts.sensors !== false) items.push(["sensor", "Monitoring station"]);
     if (opts.changes !== false) items.push(["change", "Change detected"]);
     (opts.overlays || []).forEach(id => {
@@ -208,6 +319,13 @@
       else if (k === "sensor") { sw.appendChild(el("circle", { cx: x + 11, cy: y - 2, r: 5, fill: C.paper, stroke: C.sensor, "stroke-width": 1.6 }));
         sw.appendChild(el("circle", { cx: x + 11, cy: y - 2, r: 1.8, fill: C.sensor })); }
       else if (k === "change") sw.appendChild(el("rect", { x, y: y - 7, width: 22, height: 10, fill: `url(#${uid}chg)`, stroke: C.change, "stroke-width": 1.2 }));
+      else if (k === "govt") sw.appendChild(el("rect", { x, y: y - 7, width: 22, height: 10, fill: C.govtFill, stroke: C.parcelLine, "stroke-width": 0.9, "stroke-dasharray": "3 2" }));
+      else if (k === "patta") sw.appendChild(el("rect", { x, y: y - 7, width: 22, height: 10, fill: C.pattaFill, stroke: C.parcelLine, "stroke-width": 0.9, "stroke-dasharray": "3 2" }));
+      else if (k === "segfair") sw.appendChild(el("line", { x1: x, x2: x + 22, y1: y - 2, y2: y - 2, stroke: C.segFair, "stroke-width": 3.6, "stroke-linecap": "round" }));
+      else if (k === "segrisk") sw.appendChild(el("line", { x1: x, x2: x + 22, y1: y - 2, y2: y - 2, stroke: C.segRisk, "stroke-width": 3.6, "stroke-linecap": "round" }));
+      else if (k === "segfence") sw.appendChild(el("line", { x1: x, x2: x + 22, y1: y - 2, y2: y - 2, stroke: C.ink, "stroke-width": 3.6, "stroke-dasharray": "10 5", "stroke-linecap": "round" }));
+      else if (k === "amen") sw.appendChild(el("rect", { x, y: y - 7, width: 22, height: 10, fill: "none", stroke: C.amen, "stroke-width": 2.2 }));
+      else if (k === "amenno") sw.appendChild(el("rect", { x, y: y - 7, width: 22, height: 10, fill: "none", stroke: C.amenNo, "stroke-width": 2.2, "stroke-dasharray": "6 4" }));
       else if (k.startsWith("ov:")) sw.appendChild(el("line", { x1: x, x2: x + 22, y1: y - 2, y2: y - 2, stroke: OV[k.slice(3)], "stroke-width": 1.6, "stroke-dasharray": "6 3" }));
       L.appendChild(sw);
       L.appendChild(el("text", { x: x + 30, y: y + 1.5, "font-size": 9.5, "font-family": FONT, fill: C.ink }, label));
@@ -234,7 +352,7 @@
     svg.appendChild(el("rect", { x: tx, y: by, width: tw, height: bh - 2, fill: C.paper, stroke: C.frame, "stroke-width": 0.8 }));
     const tl = [
       [a.display_name.replace(" (fictitious)", "").toUpperCase(), 11, 700, C.ink],
-      [opts.title || "Spatial baseline", 9.5, 600, C.ink],
+      [(opts.title || "Spatial baseline").slice(0, 30), 9.5, 600, C.ink],
       [`${opts.mapRef || "AIQ-L01-01"} · as at ${opts.asAt || ""}`.replace(/ as at $/, ""), 8, 400, C.gridLabel],
       [`Baseline ${data.spatial_baseline.id}, accepted ${opts.acceptedOn || ""}`, 8, 400, C.gridLabel],
       [data.spatial_baseline.method.replace(" (synthetic)", ""), 8, 400, C.gridLabel],
