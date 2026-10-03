@@ -12,6 +12,7 @@
   const NAV = [
     {
       group: "Monitor", items: [
+        { id: "home", label: "Home", href: "index.html", roles: ["officer"], hint: "Every screen, as tiles" },
         { id: "overview", label: "Lake overview", href: "lake.html", roles: ["officer", "field", "department"], hint: "Status, decisions, overdue" },
         { id: "alerts", label: "Alerts by parameter", href: "alerts.html", roles: ["officer"], hint: "Verify and act" },
         { id: "change", label: "Change detection", href: "change.html", roles: ["officer"], hint: "Pass against baseline" },
