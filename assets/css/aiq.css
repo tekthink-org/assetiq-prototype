@@ -370,7 +370,9 @@ ul.bul li { margin-bottom: 0.25rem; }
 .stat:first-child { border-left: 0; }
 .stat dt { color: var(--slate); font-size: var(--step--1); }
 .stat dd { margin: 0.1rem 0 0; font-size: var(--step-1); font-weight: 600; }
-.stat dd small { font-size: var(--step--1); font-weight: 400; color: var(--slate); }
+/* the qualifier sits on its own line: inline, it wraps wherever it runs out of
+   room and orphans a unit ("480 m of 2,526 / m") */
+.stat dd small { display: block; font-size: var(--step--1); font-weight: 400; color: var(--slate); line-height: 1.3; }
 
 .pill-row { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0 0; }
 .pill { font-size: var(--step--2); border: 1px solid var(--line); border-radius: 999px; padding: 0.05rem 0.5rem; color: var(--slate); }
