@@ -43,7 +43,7 @@
 <script src="assets/js/aiq-map.js"></script>
 <script src="assets/js/aiq-shell.js"></script>
 <script>
-AIQShell.boot(async (data, ctx) => {
+AIQShell.boot(async (data) => {
   const ov = data.officer_view, works = data.restoration_works;
   const asOf = ov.as_of.slice(0, 10);
   const enc = data.encroachment_summary;
@@ -52,9 +52,8 @@ AIQShell.boot(async (data, ctx) => {
   const overdue = ov.overdue.filter(id => !settled(id));
   const decisions = ov.needs_decision_today.filter(d => !settled(d.event));
 
-  const role = ctx.role;
-  document.getElementById("hd").textContent =
-    role === "field" ? "Today's field round" : role === "department" ? "Department position" : "Lake command";
+  /* this screen is the officer's home; the other roles are sent to their own,
+     so there is no role-dependent heading to set here */
   document.getElementById("hsub").textContent =
     `${data.asset.display_name} · ${AIQ.custody(data.asset.custody_state)} since ` +
     `${AIQ.date(data.custody_history.at(-1).date)} · one site, ${data.events.length} events in the pilot period`;

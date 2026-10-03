@@ -320,7 +320,7 @@ AIQShell.boot(async (data) => {
       <div class="panel"><div class="body">
         <h2 style="font-size:var(--step-1)">${e.title}</h2>
         <p class="sub" style="margin-bottom:0.9rem">
-          <span class="badge ${badge}">${late(e) ? "Overdue · " : ""}${stateLabel(e)}</span>${encTag(e)}
+          <span class="badge ${badge}">${late(e) ? "Overdue · " : ""}${stateLabel(e)}</span>
         </p>
         <dl class="kv" style="margin-bottom:0.9rem">
           <dt>What was monitored</dt><dd>${AIQ.param(data, e.parameter).name}</dd>
