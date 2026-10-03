@@ -779,6 +779,79 @@ D["roles"] = roles
 D["public_view"] = public_view
 D["department_view"] = department_view
 
+
+# ---------------------------------------------------------------- decisions waiting on the officer
+# The lake view prints these as they stand, so each one has to say what the act
+# is, what it is about, and what is holding. Only the verb is editorial; the
+# particulars are read off the case, the record dispute or the compliance target
+# behind the event, so they cannot drift from the screens that show the same
+# thing in full. Dates stay as ISO strings — the view formats them.
+DECISION_ACT = {
+    "EV-01": "Sign and serve the encroachment notice",
+    "EV-16": "Approve the tribunal compliance draft for filing",
+    "EV-14": "Rule on which FTL record governs the north bank",
+}
+
+
+def _late_days(due):
+    if not due:
+        return 0
+    d = (datetime.fromisoformat(AS_OF) - datetime.fromisoformat(due)).days
+    return d if d > 0 else 0
+
+
+def _decision(item):
+    ev_id = item["event"]
+    e = next(x for x in D["events"] if x["id"] == ev_id)
+    out = {"event": ev_id, "owner": item["owner"],
+           "decision": DECISION_ACT.get(ev_id, item["decision"]),
+           "due": e.get("deadline"), "link": None, "link_label": None,
+           "about": None, "holding_label": None, "holding_on": None, "holding_note": None}
+
+    case = next((c for c in encroachment_cases if c.get("event") == ev_id), None)
+    disc = next((r for r in D["record_discrepancies"]
+                 if r["id"] in (e.get("detail") or "") and r["status"] == "escalated_for_ruling"), None)
+    tgt = next((c for c in D["compliance_targets"] if c["id"] == e.get("compliance_target")), None)
+
+    if case:
+        parcel = next((p for p in survey_parcels if p["id"] == case["parcel_id"]), None)
+        held = "government land" if (parcel or {}).get("holder", "").startswith("Government") \
+            else "privately held land"
+        drafted = next((s for s in case["stages"] if s["done"] and s["stage"].endswith("drafted")), None)
+        out["about"] = (f"Survey {case['survey_no']} — {case['area_ac']} ac of {case['type'].lower()} "
+                        f"{'inside the FTL line' if case['inside_ftl'] else 'inside the buffer'}, "
+                        f"{case['bank']}, on {held}")
+        out["holding_label"] = "Notice drafted"
+        out["holding_on"] = (drafted or {}).get("on")
+        out["holding_note"] = "it has no effect until a person with authority signs it"
+        out["link"] = f"encroachment.html#{case['id']}"
+        out["link_label"] = f"open case {case['id']}"
+    elif tgt:
+        authority = tgt["authority"].split(" (")[0]
+        out["about"] = (f"{tgt['report']} to the {authority} — {len(tgt['sections'])} sections "
+                        f"assembled from the pilot record")
+        out["holding_label"] = "Draft generated"
+        out["holding_on"] = e["raised_at"][:10]
+        out["holding_note"] = "nothing is filed until it is approved"
+        out["link"] = "compliance.html"
+        out["link_label"] = "open the draft"
+    elif disc:
+        out["about"] = f"{disc['id']}: {disc['subject']} — {disc['difference'].lower()}"
+        out["holding_label"] = "Referred for a ruling"
+        out["holding_on"] = disc["raised_on"]
+        out["holding_note"] = "the authority decides which record governs; the platform does not resolve it"
+        out["due"] = disc.get("ruling_due") or out["due"]
+        out["link"] = "baseline.html"
+        out["link_label"] = f"open {disc['id']}"
+
+    out["days_late"] = _late_days(out["due"])
+    return out
+
+
+D["officer_view"]["needs_decision_today"] = [
+    _decision(x) for x in D["officer_view"]["needs_decision_today"]
+]
+
 # link each event to its monitoring parameter group, for the alerts screen
 PARAM_GROUP = {
     "boundary_integrity": "boundary",
