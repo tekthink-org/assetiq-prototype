@@ -61,6 +61,10 @@ This is the main change from v0.1, and the reason not to edit the JSON by hand.
   works covering that perimeter segment and the approach route.
 - **Evidence locations** are anchored to the place the event describes.
 - **Event text quoting a figure** is written from the generated series, so the words and the charts agree.
+- **The decision items on the lake view** (`officer_view.needs_decision_today`) carry an editorial verb
+  only. The subject, the extent, the land classification, what is holding the decision, the due date and
+  the days overdue are read off the encroachment case, the record dispute or the compliance target behind
+  the event, so a decision item cannot say something the case file contradicts.
 
 Three inconsistencies were found and fixed this way during the build: a parcel carrying an open case that
 still read "clear", two cases citing a perimeter segment on the wrong side of the lake, and an amenity
