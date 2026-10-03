@@ -10380,18 +10380,42 @@
   "needs_decision_today": [
    {
     "event": "EV-01",
-    "decision": "Sign encroachment notice",
-    "owner": "U-NO"
+    "owner": "U-NO",
+    "decision": "Sign and serve the encroachment notice",
+    "due": "2026-08-22",
+    "link": "encroachment.html#ENC-2026-001",
+    "link_label": "open case ENC-2026-001",
+    "about": "Survey 114 \u2014 0.12 ac of earth fill inside the buffer, north bank, on government land",
+    "holding_label": "Notice drafted",
+    "holding_on": "2026-08-13",
+    "holding_note": "it has no effect until a person with authority signs it",
+    "days_late": 24
    },
    {
     "event": "EV-16",
-    "decision": "Review and approve tribunal report draft",
-    "owner": "U-NO"
+    "owner": "U-NO",
+    "decision": "Approve the tribunal compliance draft for filing",
+    "due": "2026-09-23",
+    "link": "compliance.html",
+    "link_label": "open the draft",
+    "about": "Quarterly compliance report to the Environmental Tribunal \u2014 5 sections assembled from the pilot record",
+    "holding_label": "Draft generated",
+    "holding_on": "2026-09-09",
+    "holding_note": "nothing is filed until it is approved",
+    "days_late": 0
    },
    {
     "event": "EV-14",
-    "decision": "Rule on north-bank FTL record (RD-001)",
-    "owner": "U-NO"
+    "owner": "U-NO",
+    "decision": "Rule on which FTL record governs the north bank",
+    "due": "2026-09-30",
+    "link": "baseline.html",
+    "link_label": "open RD-001",
+    "about": "RD-001: FTL line on north bank \u2014 up to 18 m offset over 240 m of boundary; area differs by 2.5 ha",
+    "holding_label": "Referred for a ruling",
+    "holding_on": "2026-07-06",
+    "holding_note": "the authority decides which record governs; the platform does not resolve it",
+    "days_late": 0
    }
   ],
   "open_event_count": 9
