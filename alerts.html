@@ -54,6 +54,14 @@ AIQShell.boot(async (data) => {
   const all = () => data.events.map(AIQ.withAction);
   const userName = id => { const u = data.users.find(u => u.id === id); return u ? `${u.name}, ${u.role}` : (id || "—"); };
   const late = e => AIQ.isLate(e, asOf);
+  /* an encroachment is not a parameter of its own — it is what a boundary or an
+     ecology alert becomes once a case is opened against a survey number. The tag
+     makes that visible on the list without inventing a tenth parameter. */
+  const caseOf = e => (data.encroachment_cases || []).find(c => c.event === e.id);
+  const encTag = e => {
+    const c = caseOf(e);
+    return c ? ` <span class="badge info">Encroachment case ${c.id}</span>` : "";
+  };
   /* sources a field visit can actually confirm; a filing deadline is not one of them */
   const FIELD_CHECKABLE = ["drone", "satellite", "in_situ_sensor", "citizen_report", "field_inspection", "laboratory"];
 
@@ -173,11 +181,21 @@ AIQShell.boot(async (data) => {
         <dt>Surplus weir</dt><dd>Operating; inspected after the July rain</dd></dl>`;
     }
 
+    const cases = inParam().map(caseOf).filter(Boolean);
+    const openCases = cases.filter(c => c.stage !== "Closed");
+    const encLine = cases.length
+      ? `<p class="wire-note">${cases.length} alert${cases.length > 1 ? "s" : ""} under this parameter
+           ${cases.length > 1 ? "have" : "has"} become an encroachment case
+           (${cases.map(c => `<a href="encroachment.html#${c.id}">${c.id}</a> survey ${c.survey_no}`).join(", ")})${
+           openCases.length ? `, of which ${openCases.length} ${openCases.length > 1 ? "are" : "is"} still open` : ", all closed"}.</p>`
+      : "";
+
     box.innerHTML = `<h2>${p.name} <span class="n">— what is measured and where it comes from</span></h2>
       <div class="body">
         <p>${p.what}.</p>
         <p class="wire-note">Read from: ${(p.sources || []).join(" · ")}.
           ${h.open ? `${h.open} event${h.open > 1 ? "s" : ""} open` : "Nothing open"} of ${h.total} raised in the pilot period.</p>
+        ${encLine}
         ${extra}
       </div>`;
   }
@@ -209,7 +227,7 @@ AIQShell.boot(async (data) => {
     if (!rows.some(e => e.id === current)) current = rows[0].id;
     el.innerHTML = rows.map(e => `
       <li><button type="button" data-id="${e.id}" aria-current="${e.id === current}">
-        <span class="t">${e.title}</span>
+        <span class="t">${e.title}${encTag(e)}</span>
         <span class="m">Found by ${AIQ.source(e.evidence_source).toLowerCase()} on ${AIQ.date(e.raised_at)}${
           e.deadline ? ` · <span class="${late(e) ? "late" : ""}">action ${late(e) ? "was due" : "due"} ${AIQ.date(e.deadline)}</span>` : ""}</span>
       </button></li>`).join("");
@@ -302,7 +320,7 @@ AIQShell.boot(async (data) => {
       <div class="panel"><div class="body">
         <h2 style="font-size:var(--step-1)">${e.title}</h2>
         <p class="sub" style="margin-bottom:0.9rem">
-          <span class="badge ${badge}">${late(e) ? "Overdue · " : ""}${stateLabel(e)}</span>
+          <span class="badge ${badge}">${late(e) ? "Overdue · " : ""}${stateLabel(e)}</span>${encTag(e)}
         </p>
         <dl class="kv" style="margin-bottom:0.9rem">
           <dt>What was monitored</dt><dd>${AIQ.param(data, e.parameter).name}</dd>
@@ -311,7 +329,8 @@ AIQShell.boot(async (data) => {
           <dt>Custody state at the time</dt><dd>${AIQ.custody(e.custody_state)}</dd>
           <dt>Who has to act</dt><dd>${userName(e.owner)}</dd>
           ${e.deadline ? `<dt>Action due</dt><dd>${AIQ.date(e.deadline)}${late(e) ? " — passed" : ""}</dd>` : ""}
-          ${enc ? `<dt>Survey number</dt><dd><a href="encroachment.html#${enc.id}">${enc.survey_no}, case ${enc.id}</a></dd>` : ""}
+          ${enc ? `<dt>Encroachment case</dt><dd><a href="encroachment.html#${enc.id}">${enc.id}</a> — survey ${enc.survey_no}, ${
+            enc.inside_ftl ? "inside the FTL line" : "inside the buffer"}, ${enc.stage.toLowerCase()}</dd>` : ""}
         </dl>
         ${e.consequence_if_not_acted === "—" ? "" : `<div class="consequence">
           <strong>${AIQ.isOpen(e) ? "If this is not acted on" : "Why it was raised"}</strong>

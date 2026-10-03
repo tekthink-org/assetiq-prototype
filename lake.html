@@ -144,15 +144,29 @@ AIQShell.boot(async (data) => {
     const overdue = ov.overdue.filter(id => !settled(id));
     const decisions = ov.needs_decision_today.filter(d => !settled(d.event));
 
+    /* a decision item has to say the act, the subject and what is holding,
+       without a click; the particulars come from the data, not from this page */
     document.getElementById("decisions").innerHTML = (decisions.length ? decisions : []).map(d => {
       const e = byId[d.event];
-      return `<li><div><p class="ask"><a href="alerts.html#${e.id}">${d.decision}</a></p>` +
-        `<p class="why">${e.title}. If not acted on: ${e.consequence_if_not_acted.toLowerCase()}</p></div></li>`;
+      const href = `alerts.html#p=${e.parameter}&e=${e.id}`;
+      const owner = (data.users.find(u => u.id === d.owner) || {}).role || d.owner;
+      const when = d.days_late
+        ? `<span class="badge late">${d.days_late} days overdue</span>`
+        : d.due ? `<span class="badge open">due ${AIQ.date(d.due)}</span>` : "";
+      const holding = d.holding_label
+        ? `${d.holding_label}${d.holding_on ? " " + AIQ.date(d.holding_on) : ""} — ${d.holding_note}.`
+        : "";
+      return `<li><div>
+        <p class="ask"><a href="${href}">${d.decision}</a> ${when}</p>
+        ${d.about ? `<p class="what">${d.about}.</p>` : ""}
+        <p class="why">${holding} If not acted on: ${e.consequence_if_not_acted.toLowerCase()}.</p>
+        <p class="who">With you as ${owner}${d.link ? ` · <a href="${d.link}">${d.link_label}</a>` : ""}</p>
+      </div></li>`;
     }).join("") || `<li><div><p class="ask">Nothing waiting on you</p><p class="why">Every decision on this lake has been recorded.</p></div></li>`;
 
     /* event lists */
     const row = e => {
-      const href = `alerts.html#${e.id}`;
+      const href = `alerts.html#p=${e.parameter}&e=${e.id}`;
       const late = e.deadline && e.deadline < ov.as_of.slice(0, 10);
       return `<li><p class="title"><a href="${href}">${e.title}</a></p><p class="meta">` +
         `${AIQ.source(e.evidence_source)} · ${AIQ.zone(data, e.zone)} · ` +
